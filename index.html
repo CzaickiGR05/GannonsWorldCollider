@@ -389,18 +389,38 @@
     let characterPlaylist = []; 
     let currentPlaylistIndex = -1;
 
-    // --- IMAGE PROXY UTILITY ---
-    // Solves: Mixed Content (HTTP on HTTPS), Hotlinking, and Format Optimization
+    // --- IMAGE LOADING SYSTEM ---
+    // 1. Try Weserv Proxy (HTTP->HTTPS, Hotlink fix)
+    // 2. On error, try Original URL (Fallback)
+    // 3. On second error, show Placeholder
+    
     function resolveImg(url) {
         if (!url || typeof url !== 'string' || url.trim() === '') return 'https://via.placeholder.com/300?text=No+Image';
-        
-        // Return data URIs or relative paths as-is
         if (url.startsWith('data:') || !url.startsWith('http')) return url;
-
-        // Use Weserv.nl as a proxy for external images
-        // This bypasses hotlink protection and serves over HTTPS
-        return `https://wsrv.nl/?url=${encodeURIComponent(url)}&n=-1`;
+        // Use Weserv.nl as primary
+        return `https://wsrv.nl/?url=${encodeURIComponent(url)}&n=-1&output=webp`;
     }
+
+    // Global Error Handler for Images
+    window.handleImgError = function(img) {
+        // Stop infinite loops
+        img.onerror = null;
+        
+        // Check if we already tried the fallback
+        if (img.dataset.hasFallback === "true") {
+            img.src = 'https://via.placeholder.com/300?text=Error';
+            return;
+        }
+
+        // Try the original source
+        const orig = img.dataset.origSrc;
+        if (orig && orig !== img.src) {
+            img.dataset.hasFallback = "true"; // Mark as fallback attempt
+            img.src = orig;
+        } else {
+            img.src = 'https://via.placeholder.com/300?text=Error';
+        }
+    };
 
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', async () => {
@@ -478,7 +498,7 @@
         if(ytId) { 
             return `<div class="gwc-media-embed"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="fallback-link"><a href="https://www.youtube.com/watch?v=${ytId}" target="_blank">⚠️ Video not playing? Watch on YouTube</a></div></div>`; 
         } 
-        return `<div class="gwc-media-embed"><img src="${resolveImg(url)}" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer"></div>`; 
+        return `<div class="gwc-media-embed"><img src="${resolveImg(url)}" data-orig-src="${url}" onerror="handleImgError(this)" referrerpolicy="no-referrer"></div>`; 
     }
     
     function toggleVehiclePreview(btn) { 
@@ -540,7 +560,10 @@
         const bgLayer = document.getElementById('customBgLayer');
 
         if(currentView === 'franchise' && selectedFranchise && meta[selectedFranchise] && meta[selectedFranchise].bg) {
-            bgLayer.style.backgroundImage = `url('${resolveImg(meta[selectedFranchise].bg)}')`;
+            const bgUrl = meta[selectedFranchise].bg;
+            // Background is special case, handled via CSS
+            // We'll just try resolveImg, no fallback logic for CSS background easily
+            bgLayer.style.backgroundImage = `url('${resolveImg(bgUrl)}')`;
             bgLayer.classList.add('active'); 
             document.body.classList.add('has-custom-bg');
         } else {
@@ -651,7 +674,7 @@
                     bubble.onclick = () => viewFranchise(f);
                     const hasLogo = meta[f] && meta[f].logo;
                     let content = `<h2>${f}</h2>`;
-                    if(hasLogo) content = `<img src="${resolveImg(meta[f].logo)}" class="franchise-logo-img" alt="${f}" referrerpolicy="no-referrer">`;
+                    if(hasLogo) content = `<img src="${resolveImg(meta[f].logo)}" data-orig-src="${meta[f].logo}" class="franchise-logo-img" alt="${f}" onerror="handleImgError(this)" referrerpolicy="no-referrer">`;
                     
                     const franchiseChars = chars.filter(c => c.universe === f);
                     const charCount = franchiseChars.length;
@@ -682,7 +705,7 @@
             const hasSubcats = filtered.some(c => c.subcategory && c.subcategory.trim() !== "");
             const hasLogo = meta[selectedFranchise] && meta[selectedFranchise].logo;
             let headerContent = `<h2 style="margin:0; font-size:2rem;">${selectedFranchise}</h2>`;
-            if(hasLogo) headerContent = `<img src="${resolveImg(meta[selectedFranchise].logo)}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));" referrerpolicy="no-referrer">`;
+            if(hasLogo) headerContent = `<img src="${resolveImg(meta[selectedFranchise].logo)}" data-orig-src="${meta[selectedFranchise].logo}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));" onerror="handleImgError(this)" referrerpolicy="no-referrer">`;
             
             let mediumName = (meta[selectedFranchise] && meta[selectedFranchise].medium) ? meta[selectedFranchise].medium : "Uncategorized";
             
@@ -970,7 +993,7 @@
         if(currentView === 'search') subText = `<div style="font-size:0.8rem; color:#aaa;">${char.universe}</div>`;
         else if(char.subcategory) subText = `<div class="card-sub">${char.subcategory}</div>`;
         
-        card.innerHTML = `<div class="card-img-wrapper"><img src="${resolveImg(char.img)}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" onerror="this.onerror=null; this.src='https://via.placeholder.com/300?text=Error'" referrerpolicy="no-referrer"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
+        card.innerHTML = `<div class="card-img-wrapper"><img src="${resolveImg(char.img)}" data-orig-src="${char.img}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" onerror="handleImgError(this)" referrerpolicy="no-referrer"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
         
         container.appendChild(card);
     }
@@ -1018,7 +1041,7 @@
                             rows += `<div class="lbo-level-item">
                                 <strong style="color:var(--text-muted); font-size:0.8rem; display:inline;">${lvl.title}</strong>: ${lvl.desc}`;
                             if(lvl.img && lvl.img.trim() !== "") {
-                                rows += `<div class="lbo-level-img-container"><img src="${resolveImg(lvl.img)}" class="lbo-level-img" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer"></div>`;
+                                rows += `<div class="lbo-level-img-container"><img src="${resolveImg(lvl.img)}" data-orig-src="${lvl.img}" class="lbo-level-img" onerror="handleImgError(this)" referrerpolicy="no-referrer"></div>`;
                             }
                             rows += `</div>`;
                         }
@@ -1027,7 +1050,7 @@
                     
                     let bodyContent = `<div class="lbo-content-grid">`;
                     if(media.poster) {
-                        bodyContent += `<img src="${resolveImg(media.poster)}" class="lbo-poster" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer">`;
+                        bodyContent += `<img src="${resolveImg(media.poster)}" data-orig-src="${media.poster}" class="lbo-poster" onerror="handleImgError(this)" referrerpolicy="no-referrer">`;
                     }
                     bodyContent += `<div class="lbo-level-list">${rows}</div></div>`;
 
@@ -1055,7 +1078,7 @@
         const cy = char.imgCrop ? char.imgCrop.y : 50;
         const cz = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
         
-        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${resolveImg(char.img)}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" onerror="this.onerror=null; this.src='https://via.placeholder.com/300?text=Error'" referrerpolicy="no-referrer"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
+        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${resolveImg(char.img)}" data-orig-src="${char.img}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" onerror="handleImgError(this)" referrerpolicy="no-referrer"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
         
         const container = document.getElementById('wikiPageContainer');
         container.innerHTML = fullHtml;
@@ -1191,13 +1214,13 @@
             const chars = getChars();
             const char = chars.find(c => c.id === charId);
             if(char && char.img) {
-                openSkinModal(name, resolveImg(char.img), char.imgCrop);
+                openSkinModal(name, resolveImg(char.img), char.imgCrop, char.img);
             }
         } else if (url) {
             const x = el.getAttribute('data-x'); 
             const y = el.getAttribute('data-y'); 
             const z = el.getAttribute('data-z') || 1;
-            openSkinModal(name, resolveImg(url), {x, y, z});
+            openSkinModal(name, resolveImg(url), {x, y, z}, url);
         }
     }
     
@@ -1206,7 +1229,7 @@
         const x = el.getAttribute('data-x'); 
         const y = el.getAttribute('data-y'); 
         const z = el.getAttribute('data-z') || 1; 
-        if(url) showTooltip(e, resolveImg(url), x, y, z); 
+        if(url) showTooltip(e, resolveImg(url), x, y, z, url); 
     }
     
     function hideTooltip() { 
@@ -1219,9 +1242,12 @@
         tooltip.style.top = (e.clientY + 15) + 'px'; 
     }
     
-    function showTooltip(e, url, x, y, z) { 
+    function showTooltip(e, url, x, y, z, origUrl) { 
         const tooltip = document.getElementById('skinTooltip'); 
         const tooltipImg = document.getElementById('skinTooltipImg'); 
+        tooltipImg.dataset.origSrc = origUrl;
+        tooltipImg.dataset.hasFallback = "false";
+        tooltipImg.onerror = function() { handleImgError(this); };
         tooltipImg.src = url; 
         tooltipImg.style.objectPosition = `${x}% ${y}%`; 
         tooltipImg.style.transform = `scale(${z})`; 
@@ -1230,10 +1256,13 @@
         moveTooltip(e); 
     }
 
-    function openSkinModal(skinName, url, crop = {x:50,y:50,z:1}) {
+    function openSkinModal(skinName, url, crop = {x:50,y:50,z:1}, origUrl) {
         document.getElementById('skinModalNameDisplay').innerText = skinName;
         
         const prev = document.getElementById('skinPreviewImg'); 
+        prev.dataset.origSrc = origUrl;
+        prev.dataset.hasFallback = "false";
+        prev.onerror = function() { handleImgError(this); };
         prev.src = url; 
         prev.style.objectPosition = `${crop.x}% ${crop.y}%`; 
         prev.style.transform = `scale(${crop.z})`; 

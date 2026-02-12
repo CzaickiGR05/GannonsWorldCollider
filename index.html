@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- Meta tags to help with image loading -->
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
@@ -331,6 +331,49 @@
             transform-style: preserve-3d;
             will-change: transform;
             transition: transform 0.4s ease-out; 
+        }
+
+        /* --- MOBILE RESPONSIVE STYLES --- */
+        @media (max-width: 768px) {
+            /* Layout adjustments */
+            .main-content { padding: 20px; }
+            nav { padding: 15px 20px; flex-direction: column; gap: 15px; }
+            .nav-actions { width: 100%; justify-content: center; }
+            
+            /* Medium Hub */
+            .medium-bubble { width: 140px; height: 140px; }
+            .medium-bubble span { font-size: 1rem; }
+            
+            /* Wiki Page (The biggest change) */
+            .wiki-page { flex-direction: column; height: 100%; width: 100%; border-radius: 0; border: none; }
+            .wiki-content-wrapper { flex-direction: column; }
+            .wiki-sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--glass-border); padding: 20px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; }
+            .wiki-portrait-wrapper { width: 180px; margin-bottom: 15px; }
+            .wiki-meta { text-align: center; width: 100%; }
+            .wiki-content { padding: 20px; }
+            .wiki-title h1 { font-size: 2rem; }
+            
+            /* Stats */
+            .stats-summary { grid-template-columns: 1fr; }
+            .stats-row { flex-direction: column; }
+            .pie-container { flex-direction: column; }
+            
+            /* Timeline */
+            .timeline-year-block { padding-left: 0; border-left: none; }
+            .timeline-year-label { position: relative; text-align: left; width: 100%; margin-bottom: 10px; left: 0; top: auto; font-size: 1.5rem; }
+            
+            /* Skins Modal */
+            .skin-modal-content { width: 90%; padding: 20px; box-sizing: border-box; }
+            
+            /* Search */
+            .search-wrapper { padding-top: 10px; margin-bottom: 20px; }
+            
+            /* LBO Grid */
+            .lbo-content-grid { flex-direction: column; }
+            .lbo-poster { width: 100px; align-self: center; margin-bottom: 15px; }
+            
+            /* Close button fix for mobile */
+            .close-btn { top: 10px; right: 10px; font-size: 1.5rem; background: rgba(0,0,0,0.5); width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
         }
 
     </style>

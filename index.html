@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- CRITICAL FIX: Prevents external sites from blocking images due to hotlinking -->
+    <!-- Meta tags to help with image loading -->
     <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>GWC Wiki | Viewer</title>
     <style>
         :root {
@@ -388,6 +389,19 @@
     let characterPlaylist = []; 
     let currentPlaylistIndex = -1;
 
+    // --- IMAGE PROXY UTILITY ---
+    // Solves: Mixed Content (HTTP on HTTPS), Hotlinking, and Format Optimization
+    function resolveImg(url) {
+        if (!url || typeof url !== 'string' || url.trim() === '') return 'https://via.placeholder.com/300?text=No+Image';
+        
+        // Return data URIs or relative paths as-is
+        if (url.startsWith('data:') || !url.startsWith('http')) return url;
+
+        // Use Weserv.nl as a proxy for external images
+        // This bypasses hotlink protection and serves over HTTPS
+        return `https://wsrv.nl/?url=${encodeURIComponent(url)}&n=-1`;
+    }
+
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', async () => {
         try {
@@ -464,7 +478,7 @@
         if(ytId) { 
             return `<div class="gwc-media-embed"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="fallback-link"><a href="https://www.youtube.com/watch?v=${ytId}" target="_blank">⚠️ Video not playing? Watch on YouTube</a></div></div>`; 
         } 
-        return `<div class="gwc-media-embed"><img src="${url}" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer"></div>`; 
+        return `<div class="gwc-media-embed"><img src="${resolveImg(url)}" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer"></div>`; 
     }
     
     function toggleVehiclePreview(btn) { 
@@ -526,7 +540,7 @@
         const bgLayer = document.getElementById('customBgLayer');
 
         if(currentView === 'franchise' && selectedFranchise && meta[selectedFranchise] && meta[selectedFranchise].bg) {
-            bgLayer.style.backgroundImage = `url('${meta[selectedFranchise].bg}')`;
+            bgLayer.style.backgroundImage = `url('${resolveImg(meta[selectedFranchise].bg)}')`;
             bgLayer.classList.add('active'); 
             document.body.classList.add('has-custom-bg');
         } else {
@@ -637,7 +651,7 @@
                     bubble.onclick = () => viewFranchise(f);
                     const hasLogo = meta[f] && meta[f].logo;
                     let content = `<h2>${f}</h2>`;
-                    if(hasLogo) content = `<img src="${meta[f].logo}" class="franchise-logo-img" alt="${f}" referrerpolicy="no-referrer">`;
+                    if(hasLogo) content = `<img src="${resolveImg(meta[f].logo)}" class="franchise-logo-img" alt="${f}" referrerpolicy="no-referrer">`;
                     
                     const franchiseChars = chars.filter(c => c.universe === f);
                     const charCount = franchiseChars.length;
@@ -668,7 +682,7 @@
             const hasSubcats = filtered.some(c => c.subcategory && c.subcategory.trim() !== "");
             const hasLogo = meta[selectedFranchise] && meta[selectedFranchise].logo;
             let headerContent = `<h2 style="margin:0; font-size:2rem;">${selectedFranchise}</h2>`;
-            if(hasLogo) headerContent = `<img src="${meta[selectedFranchise].logo}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));" referrerpolicy="no-referrer">`;
+            if(hasLogo) headerContent = `<img src="${resolveImg(meta[selectedFranchise].logo)}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));" referrerpolicy="no-referrer">`;
             
             let mediumName = (meta[selectedFranchise] && meta[selectedFranchise].medium) ? meta[selectedFranchise].medium : "Uncategorized";
             
@@ -956,7 +970,7 @@
         if(currentView === 'search') subText = `<div style="font-size:0.8rem; color:#aaa;">${char.universe}</div>`;
         else if(char.subcategory) subText = `<div class="card-sub">${char.subcategory}</div>`;
         
-        card.innerHTML = `<div class="card-img-wrapper"><img src="${char.img || 'https://via.placeholder.com/300?text=No+Image'}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" onerror="this.onerror=null; this.src='https://via.placeholder.com/300?text=Error'" referrerpolicy="no-referrer"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
+        card.innerHTML = `<div class="card-img-wrapper"><img src="${resolveImg(char.img)}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" onerror="this.onerror=null; this.src='https://via.placeholder.com/300?text=Error'" referrerpolicy="no-referrer"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
         
         container.appendChild(card);
     }
@@ -1004,7 +1018,7 @@
                             rows += `<div class="lbo-level-item">
                                 <strong style="color:var(--text-muted); font-size:0.8rem; display:inline;">${lvl.title}</strong>: ${lvl.desc}`;
                             if(lvl.img && lvl.img.trim() !== "") {
-                                rows += `<div class="lbo-level-img-container"><img src="${lvl.img}" class="lbo-level-img" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer"></div>`;
+                                rows += `<div class="lbo-level-img-container"><img src="${resolveImg(lvl.img)}" class="lbo-level-img" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer"></div>`;
                             }
                             rows += `</div>`;
                         }
@@ -1013,7 +1027,7 @@
                     
                     let bodyContent = `<div class="lbo-content-grid">`;
                     if(media.poster) {
-                        bodyContent += `<img src="${media.poster}" class="lbo-poster" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer">`;
+                        bodyContent += `<img src="${resolveImg(media.poster)}" class="lbo-poster" onerror="this.onerror=null; this.style.display='none'" referrerpolicy="no-referrer">`;
                     }
                     bodyContent += `<div class="lbo-level-list">${rows}</div></div>`;
 
@@ -1041,7 +1055,7 @@
         const cy = char.imgCrop ? char.imgCrop.y : 50;
         const cz = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
         
-        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${char.img || 'https://via.placeholder.com/300?text=No+Image'}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" onerror="this.onerror=null; this.src='https://via.placeholder.com/300?text=Error'" referrerpolicy="no-referrer"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
+        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${resolveImg(char.img)}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" onerror="this.onerror=null; this.src='https://via.placeholder.com/300?text=Error'" referrerpolicy="no-referrer"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
         
         const container = document.getElementById('wikiPageContainer');
         container.innerHTML = fullHtml;
@@ -1177,13 +1191,13 @@
             const chars = getChars();
             const char = chars.find(c => c.id === charId);
             if(char && char.img) {
-                openSkinModal(name, char.img, char.imgCrop);
+                openSkinModal(name, resolveImg(char.img), char.imgCrop);
             }
         } else if (url) {
             const x = el.getAttribute('data-x'); 
             const y = el.getAttribute('data-y'); 
             const z = el.getAttribute('data-z') || 1;
-            openSkinModal(name, url, {x, y, z});
+            openSkinModal(name, resolveImg(url), {x, y, z});
         }
     }
     
@@ -1192,7 +1206,7 @@
         const x = el.getAttribute('data-x'); 
         const y = el.getAttribute('data-y'); 
         const z = el.getAttribute('data-z') || 1; 
-        if(url) showTooltip(e, url, x, y, z); 
+        if(url) showTooltip(e, resolveImg(url), x, y, z); 
     }
     
     function hideTooltip() { 

@@ -468,7 +468,7 @@
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            const response = await fetch('data.json');
+            const response = await fetch('data.json?t=' + Date.now());
             if(!response.ok) throw new Error("Failed to load data.json");
             gwcData = await response.json();
         } catch(e) {
@@ -1183,7 +1183,7 @@
         let html = '<div class="skins-container">';
         let sortState = { foundMain: false };
 
-        function renderRecursive(items, displayPrefix, keyPrefix) {
+        function renderRecursive(items, prefix) {
             let directSkins = [];
             let subCats = [];
             let firstIsString = (items.length > 0 && typeof items[0] === 'string');
@@ -1193,40 +1193,34 @@
             });
             if(firstIsString) {
                 if(directSkins.length > 0) {
-                    let catName = displayPrefix || "Misc.";
-                    // Pass keyPrefix to properly build unique keys
-                    html += renderSkinGroup(catName, directSkins, char, sortState, keyPrefix || "");
+                    let catName = prefix || "Misc.";
+                    html += renderSkinGroup(catName, directSkins, char, sortState);
                 }
                 subCats.forEach(cat => {
-                    let newDisplay = displayPrefix ? `${displayPrefix} › ${cat.name}` : cat.name;
-                    let newKey = keyPrefix ? `${keyPrefix}::${cat.name}` : cat.name;
-                    renderRecursive(cat.items, newDisplay, newKey);
+                    let newPrefix = prefix ? `${prefix} › ${cat.name}` : cat.name;
+                    renderRecursive(cat.items, newPrefix);
                 });
             } else {
                 subCats.forEach(cat => {
-                    let newDisplay = displayPrefix ? `${displayPrefix} › ${cat.name}` : cat.name;
-                    let newKey = keyPrefix ? `${keyPrefix}::${cat.name}` : cat.name;
-                    renderRecursive(cat.items, newDisplay, newKey);
+                    let newPrefix = prefix ? `${prefix} › ${cat.name}` : cat.name;
+                    renderRecursive(cat.items, newPrefix);
                 });
                 if(directSkins.length > 0) {
-                    let catName = displayPrefix || "Misc.";
-                    html += renderSkinGroup(catName, directSkins, char, sortState, keyPrefix || "");
+                    let catName = prefix || "Misc.";
+                    html += renderSkinGroup(catName, directSkins, char, sortState);
                 }
             }
         }
 
-        renderRecursive(tree, "", "");
+        renderRecursive(tree, "");
         return html + '</div>';
     }
 
-    function renderSkinGroup(category, skinList, char, sortState, keyPath) {
+    function renderSkinGroup(category, skinList, char, sortState) {
         let html = `<div class="skin-group"><div class="skin-cat">${category}</div><div class="skin-tags">`;
         skinList.forEach(s => {
             const isFirst = !sortState.foundMain;
             if (isFirst) sortState.foundMain = true;
-
-            // Generate Unique Key: "Cat::SubCat::SkinName" OR fallback to just "SkinName" if no path
-            const uniqueKey = keyPath ? keyPath + "::" + s : s;
 
             let cssClass = 'skin-pill'; 
             let dataAttrs = `data-id="${char.id}" data-name="${escapeSkinName(s)}"`; 
@@ -1238,10 +1232,7 @@
                 events = `onclick="handleSkinClick(this)"`; 
             } else { 
                 const isGwcog = s.toLowerCase().includes('gwcog') || category.toLowerCase().includes('gwcog'); 
-                
-                // Lookup Priority: Unique Key -> Legacy Key (Name only)
-                const data = (char.skinImages && (char.skinImages[uniqueKey] || char.skinImages[s])); 
-                
+                const data = (char.skinImages && char.skinImages[s]); 
                 if(isGwcog) cssClass += ' gwcog'; 
                 if(data) { 
                     cssClass += ' has-image'; 

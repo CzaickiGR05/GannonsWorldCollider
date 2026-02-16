@@ -452,32 +452,43 @@
 
     // --- GLOBAL IMAGE ERROR HANDLER ---
     function handleImageError(img) {
-        // Prevent infinite loops
-        if (img.dataset.hasRetried) {
-            img.style.display = 'none'; // Giving up
+        // Initialize retry count
+        let retryCount = parseInt(img.dataset.retryCount || '0');
+        
+        // Stop after 2 retries to prevent infinite loops
+        if (retryCount >= 2) {
+            img.style.display = 'none'; // Give up
             return;
         }
-        
-        img.dataset.hasRetried = "true";
-        
-        let url = img.src;
 
-        // Wikia/Fandom specific cleanup
-        // They often append /revision/latest/scale-to-width... which can fail with proxies
-        // We want to grab the clean path ending in the extension
-        if (url.includes('wikia.nocookie.net')) {
-            // Regex to match the file extension and capture everything before it
-            // Matches anything ending in .png, .jpg, .jpeg, .gif, or .webp (case insensitive)
-            const cleanMatch = url.match(/(.+?\.(?:png|jpg|jpeg|gif|webp))/i);
-            if (cleanMatch) {
-                url = cleanMatch[1]; // Use the clean URL
-            }
+        // Increment retry count
+        img.dataset.retryCount = retryCount + 1;
+
+        // Get the BASE URL (We store the original src so we don't try to proxy a proxy)
+        let url = img.dataset.originalSrc;
+        if (!url) {
+            url = img.src;
+            img.dataset.originalSrc = url; // Save the original failing URL
         }
-        
-        // Try to load via proxy (bypasses CORS and Mixed Content)
-        // wsrv.nl is a reliable image proxy that enables SSL
-        // n=-1 tells wsrv not to transform/optimize if not needed, just proxy
-        img.src = `https://wsrv.nl/?url=${encodeURIComponent(url)}&n=-1`;
+
+        // Clean Wikia/Fandom URLs
+        // They often look like: .../Image.png/revision/latest?cb=...
+        // We want: .../Image.png
+        let cleanUrl = url;
+        if (url.includes('wikia.nocookie.net')) {
+            const cleanMatch = url.match(/(.+?\.(?:png|jpg|jpeg|gif|webp))/i);
+            if (cleanMatch) cleanUrl = cleanMatch[1];
+        }
+
+        if (retryCount === 0) {
+            // RETRY 1: Use wsrv.nl proxy (Standard fix)
+            // n=-1 tells it not to compress/resize, just proxy
+            img.src = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&n=-1`;
+        } else if (retryCount === 1) {
+            // RETRY 2: Use corsproxy.io (Fallback fix)
+            // This proxy often bypasses blocks that wsrv.nl might hit
+            img.src = `https://corsproxy.io/?${cleanUrl}`;
+        }
     }
 
     function init3DTilt() {

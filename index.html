@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    
+    <!-- Prevent Caching -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
     <title>GWC Wiki | Read Only</title>
     <style>
         :root {
@@ -416,7 +422,8 @@
 
     async function fetchData() {
         try {
-            const response = await fetch('data.json');
+            // Add timestamp to force fresh download
+            const response = await fetch(`data.json?t=${new Date().getTime()}`);
             if (!response.ok) {
                 throw new Error("Could not load data.json");
             }

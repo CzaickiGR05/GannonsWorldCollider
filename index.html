@@ -2,11 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- Meta tags to help with image loading -->
-    <meta name="referrer" content="no-referrer">
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-    <title>GWC Wiki | Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GWC Wiki | Read Only</title>
     <style>
         :root {
             --primary: #ff4757;
@@ -71,15 +68,15 @@
             background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 20px;
             cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: transform 0.2s ease, box-shadow 0.2s ease; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.2); will-change: transform;
+            text-decoration: none;
         }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(255, 71, 87, 0.4); }
         .btn.secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); }
         .btn.secondary:hover { background: rgba(255,255,255,0.2); }
-        .btn.small { padding: 4px 10px; font-size: 0.75rem; }
-
+        
         /* Layout */
         .container { display: flex; flex: 1; overflow: hidden; position: relative; z-index: 1; }
-
+        
         /* Main Content */
         .main-content { 
             flex: 1; padding: 0 40px 40px 40px; 
@@ -97,7 +94,7 @@
         .animate-view { animation: pageSlideIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 
         .search-wrapper { margin-bottom: 30px; width: 100%; max-width: 600px; align-self: flex-start; position: sticky; top: 0; z-index: 15; padding-top: 40px; }
-        .search-bar { width: 100%; padding: 15px 25px; background: rgba(30, 39, 46, 0.9); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); border-radius: 30px; color: white; font-size: 1.1rem; box-shadow: var(--glass-shadow); outline: none; transition: border-color 0.2s; }
+        .search-bar { width: 100%; padding: 15px 25px; background: rgba(30, 39, 46, 0.9); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); border-radius: 30px; color: white; font-size: 1.1rem; box-shadow: var(--glass-shadow); outline: none;}
         .search-bar:focus { border-color: var(--primary); }
 
         /* --- MEDIUM BUBBLES --- */
@@ -126,7 +123,7 @@
         
         .subcat-title { 
             font-size: 1.2rem; color: #ddd; margin: 40px 0 20px 0; border-bottom: 1px dashed rgba(255,255,255,0.2); 
-            padding-bottom: 5px; width: 100%; text-transform: uppercase; letter-spacing: 1px;
+            padding-bottom: 5px; width: 100%; text-transform: uppercase; letter-spacing: 1px; user-select: none;
             display: flex; align-items: center; gap: 10px;
         }
 
@@ -188,7 +185,7 @@
         .wiki-meta p { margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; }
         .wiki-meta strong { color: var(--primary); display: block; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 2px; }
         
-        /* Wiki Content Container */
+        /* Wiki Content Container for sliding */
         .wiki-content-wrapper { flex: 1; display: flex; overflow: hidden; position: relative; }
         
         /* Sliding Animations */
@@ -250,7 +247,7 @@
         #skinTooltip { position: fixed; pointer-events: none; z-index: 20000; border: 2px solid white; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); width: 180px; aspect-ratio: 2/3; display: none; background: #000; }
         #skinTooltip img { width: 100%; height: 100%; object-fit: cover; }
 
-        .skin-modal-content { background: #1e272e; width: 550px; padding: 30px; border-radius: 12px; border: 1px solid var(--glass-border); text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
+        .skin-modal-content { background: #1e272e; width: 450px; padding: 30px; border-radius: 12px; border: 1px solid var(--glass-border); text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); }
         .skin-preview { width: 100%; aspect-ratio: 2/3; max-height: 500px; object-fit: cover; background: #000; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; transition: object-position 0.1s; }
         .skin-preview-wrapper { width: 100%; aspect-ratio: 2/3; max-height: 500px; border-radius: 8px; overflow: hidden; margin-bottom: 20px; border: 1px solid #333; background: #000; }
         .skin-modal-title { color: var(--accent); font-size: 1.5rem; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; gap: 10px;}
@@ -333,48 +330,11 @@
             transition: transform 0.4s ease-out; 
         }
 
-        /* --- MOBILE RESPONSIVE STYLES --- */
-        @media (max-width: 768px) {
-            /* Layout adjustments */
-            .main-content { padding: 20px; }
-            nav { padding: 15px 20px; flex-direction: column; gap: 15px; }
-            .nav-actions { width: 100%; justify-content: center; }
-            
-            /* Medium Hub */
-            .medium-bubble { width: 140px; height: 140px; }
-            .medium-bubble span { font-size: 1rem; }
-            
-            /* Wiki Page (The biggest change) */
-            .wiki-page { flex-direction: column; height: 100%; width: 100%; border-radius: 0; border: none; }
-            .wiki-content-wrapper { flex-direction: column; }
-            .wiki-sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--glass-border); padding: 20px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box; }
-            .wiki-portrait-wrapper { width: 180px; margin-bottom: 15px; }
-            .wiki-meta { text-align: center; width: 100%; }
-            .wiki-content { padding: 20px; }
-            .wiki-title h1 { font-size: 2rem; }
-            
-            /* Stats */
-            .stats-summary { grid-template-columns: 1fr; }
-            .stats-row { flex-direction: column; }
-            .pie-container { flex-direction: column; }
-            
-            /* Timeline */
-            .timeline-year-block { padding-left: 0; border-left: none; }
-            .timeline-year-label { position: relative; text-align: left; width: 100%; margin-bottom: 10px; left: 0; top: auto; font-size: 1.5rem; }
-            
-            /* Skins Modal */
-            .skin-modal-content { width: 90%; padding: 20px; box-sizing: border-box; }
-            
-            /* Search */
-            .search-wrapper { padding-top: 10px; margin-bottom: 20px; }
-            
-            /* LBO Grid */
-            .lbo-content-grid { flex-direction: column; }
-            .lbo-poster { width: 100px; align-self: center; margin-bottom: 15px; }
-            
-            /* Close button fix for mobile */
-            .close-btn { top: 10px; right: 10px; font-size: 1.5rem; background: rgba(0,0,0,0.5); width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; }
-        }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
 
     </style>
 </head>
@@ -383,10 +343,10 @@
 <div id="customBgLayer"></div>
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
-<div id="skinTooltip"><img id="skinTooltipImg" src="" referrerpolicy="no-referrer"></div>
+<div id="skinTooltip"><img id="skinTooltipImg" src=""></div>
 
 <nav>
-    <h1 onclick="goHome()"><b>GWC</b> Wiki <span style="font-size:0.8rem; opacity:0.6; font-weight:300;">(Read Only)</span></h1>
+    <h1 onclick="goHome()"><b>GWC</b> Wiki</h1>
     <div class="nav-actions">
         <button class="btn" onclick="viewStats()">Dashboard / Stats</button>
         <button class="btn secondary" onclick="viewAbout()">Glossary</button>
@@ -404,7 +364,8 @@
     <div class="wiki-page" onclick="event.stopPropagation()">
         <button class="close-btn" onclick="closePageDirect()">×</button>
         <div id="wikiPageContainer" class="wiki-content-wrapper">
-            </div>
+            <!-- Content Injected via JS -->
+        </div>
     </div>
 </div>
 
@@ -413,7 +374,7 @@
         <h2 class="skin-modal-title"><span id="skinModalNameDisplay">Skin Name</span></h2>
         <div id="skinViewArea">
             <div class="skin-preview-wrapper">
-                <img id="skinPreviewImg" class="skin-preview" src="" referrerpolicy="no-referrer">
+                <img id="skinPreviewImg" class="skin-preview" src="">
             </div>
             <div style="display:flex; gap:10px; justify-content:center;">
                 <button class="btn secondary" onclick="closeSkinModalDirect()">Close</button>
@@ -423,61 +384,23 @@
 </div>
 
 <script>
-    // --- READ ONLY MODE VARIABLES ---
-    let gwcData = { chars: [], meta: {} };
-    
+    // --- READ ONLY DATA ENGINE ---
+    let GWC_DATA = {
+        chars: [],
+        meta: {}
+    };
+
     let currentView = 'home'; 
     let selectedMedium = null;
     let selectedFranchise = null;
+    let draggedSubcat = null; // Legacy leftover, used for drag variable def but feature is readonly
+    
     let characterPlaylist = []; 
     let currentPlaylistIndex = -1;
 
-    // --- IMAGE LOADING SYSTEM ---
-    // 1. Try Weserv Proxy (HTTP->HTTPS, Hotlink fix)
-    // 2. On error, try Original URL (Fallback)
-    // 3. On second error, show Placeholder
-    
-    function resolveImg(url) {
-        if (!url || typeof url !== 'string' || url.trim() === '') return 'https://via.placeholder.com/300?text=No+Image';
-        if (url.startsWith('data:') || !url.startsWith('http')) return url;
-        // Use Weserv.nl as primary
-        return `https://wsrv.nl/?url=${encodeURIComponent(url)}&n=-1&output=webp`;
-    }
-
-    // Global Error Handler for Images
-    window.handleImgError = function(img) {
-        // Stop infinite loops
-        img.onerror = null;
-        
-        // Check if we already tried the fallback
-        if (img.dataset.hasFallback === "true") {
-            img.src = 'https://via.placeholder.com/300?text=Error';
-            return;
-        }
-
-        // Try the original source
-        const orig = img.dataset.origSrc;
-        if (orig && orig !== img.src) {
-            img.dataset.hasFallback = "true"; // Mark as fallback attempt
-            img.src = orig;
-        } else {
-            img.src = 'https://via.placeholder.com/300?text=Error';
-        }
-    };
-
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', async () => {
-        try {
-            const response = await fetch('data.json?t=' + Date.now());
-            if(!response.ok) throw new Error("Failed to load data.json");
-            gwcData = await response.json();
-        } catch(e) {
-            console.error(e);
-            document.getElementById('mainViewContainer').innerHTML = `<div style="text-align:center; margin-top:50px;"><h2>Error loading data</h2><p>Please ensure 'data.json' is present in the repository.</p></div>`;
-            return;
-        }
-
-        await renderMainView();
+        await fetchData();
         init3DTilt();
         
         document.addEventListener('keydown', (e) => {
@@ -488,6 +411,35 @@
             }
         });
     });
+
+    async function fetchData() {
+        try {
+            const response = await fetch('data.json');
+            if (!response.ok) {
+                throw new Error("Could not load data.json");
+            }
+            const json = await response.json();
+            
+            // Handle different possible JSON structures
+            if (Array.isArray(json)) {
+                GWC_DATA.chars = json;
+                GWC_DATA.meta = {};
+            } else {
+                GWC_DATA.chars = json.chars || [];
+                GWC_DATA.meta = json.meta || {};
+            }
+            
+            await renderMainView();
+        } catch (error) {
+            console.error(error);
+            document.getElementById('mainViewContainer').innerHTML = `
+                <div style="text-align:center; padding-top:50px;">
+                    <h2 style="color:#ff4757;">Error Loading Data</h2>
+                    <p>Make sure 'data.json' exists in the repository.</p>
+                </div>
+            `;
+        }
+    }
 
     function init3DTilt() {
         const targets = document.querySelectorAll('.medium-bubble, .franchise-bubble, .char-card, .glossary-card');
@@ -515,9 +467,9 @@
         });
     }
 
-    // --- DATA GETTERS (Sync in Read-Only Mode) ---
-    function getChars() { return gwcData.chars || []; }
-    function getFranchiseMeta() { return gwcData.meta || {}; }
+    // --- DATA GETTERS ---
+    function getChars() { return GWC_DATA.chars; }
+    function getFranchiseMeta() { return GWC_DATA.meta; }
 
     function getAllFranchiseNames() {
         const chars = getChars();
@@ -527,7 +479,7 @@
         return [...new Set([...fromChars, ...fromMeta])];
     }
 
-    // --- UTILITIES ---
+    // --- UTILS ---
     function getYouTubeId(url) { 
         if(!url) return null; 
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/; 
@@ -539,9 +491,9 @@
         if(!url) return ''; 
         const ytId = getYouTubeId(url); 
         if(ytId) { 
-            return `<div class="gwc-media-embed"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="fallback-link"><a href="https://www.youtube.com/watch?v=${ytId}" target="_blank">⚠️ Video not playing? Watch on YouTube</a></div></div>`; 
+            return `<div class="gwc-media-embed"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="fallback-link"><a href="https://www.youtube.com/watch?v=${ytId}" target="_blank"⚠️ Video not playing? Watch on YouTube</a></div></div>`; 
         } 
-        return `<div class="gwc-media-embed"><img src="${resolveImg(url)}" data-orig-src="${url}" onerror="handleImgError(this)" referrerpolicy="no-referrer"></div>`; 
+        return `<div class="gwc-media-embed"><img src="${url}" onerror="this.style.display='none'"></div>`; 
     }
     
     function toggleVehiclePreview(btn) { 
@@ -603,10 +555,7 @@
         const bgLayer = document.getElementById('customBgLayer');
 
         if(currentView === 'franchise' && selectedFranchise && meta[selectedFranchise] && meta[selectedFranchise].bg) {
-            const bgUrl = meta[selectedFranchise].bg;
-            // Background is special case, handled via CSS
-            // We'll just try resolveImg, no fallback logic for CSS background easily
-            bgLayer.style.backgroundImage = `url('${resolveImg(bgUrl)}')`;
+            bgLayer.style.backgroundImage = `url('${meta[selectedFranchise].bg}')`;
             bgLayer.classList.add('active'); 
             document.body.classList.add('has-custom-bg');
         } else {
@@ -714,10 +663,10 @@
                 list.forEach(f => {
                     const bubble = document.createElement('div');
                     bubble.className = 'franchise-bubble';
-                    bubble.onclick = () => viewFranchise(f);
+                    bubble.onclick = (e) => { viewFranchise(f); };
                     const hasLogo = meta[f] && meta[f].logo;
                     let content = `<h2>${f}</h2>`;
-                    if(hasLogo) content = `<img src="${resolveImg(meta[f].logo)}" data-orig-src="${meta[f].logo}" class="franchise-logo-img" alt="${f}" onerror="handleImgError(this)" referrerpolicy="no-referrer">`;
+                    if(hasLogo) content = `<img src="${meta[f].logo}" class="franchise-logo-img" alt="${f}">`;
                     
                     const franchiseChars = chars.filter(c => c.universe === f);
                     const charCount = franchiseChars.length;
@@ -748,7 +697,7 @@
             const hasSubcats = filtered.some(c => c.subcategory && c.subcategory.trim() !== "");
             const hasLogo = meta[selectedFranchise] && meta[selectedFranchise].logo;
             let headerContent = `<h2 style="margin:0; font-size:2rem;">${selectedFranchise}</h2>`;
-            if(hasLogo) headerContent = `<img src="${resolveImg(meta[selectedFranchise].logo)}" data-orig-src="${meta[selectedFranchise].logo}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));" onerror="handleImgError(this)" referrerpolicy="no-referrer">`;
+            if(hasLogo) headerContent = `<img src="${meta[selectedFranchise].logo}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));">`;
             
             let mediumName = (meta[selectedFranchise] && meta[selectedFranchise].medium) ? meta[selectedFranchise].medium : "Uncategorized";
             
@@ -827,7 +776,6 @@
                         if (c.lbo.toLowerCase().includes(query)) return true;
                     }
                 }
-                
                 return false;
             });
 
@@ -1036,8 +984,7 @@
         if(currentView === 'search') subText = `<div style="font-size:0.8rem; color:#aaa;">${char.universe}</div>`;
         else if(char.subcategory) subText = `<div class="card-sub">${char.subcategory}</div>`;
         
-        card.innerHTML = `<div class="card-img-wrapper"><img src="${resolveImg(char.img)}" data-orig-src="${char.img}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" onerror="handleImgError(this)" referrerpolicy="no-referrer"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
-        
+        card.innerHTML = `<div class="card-img-wrapper"><img src="${char.img || 'https://via.placeholder.com/300?text=No+Image'}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" onerror="this.src='https://via.placeholder.com/300?text=Error'"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
         container.appendChild(card);
     }
 
@@ -1058,6 +1005,7 @@
         let contentHtml = `<div class="wiki-title"><h1>${char.name}</h1>`;
         if(char.title) contentHtml += `<span>"${char.title}"</span>`;
         if(char.quote) contentHtml += `<div class="wiki-quote">"${char.quote}"</div>`;
+        
         contentHtml += `</div>`;
         
         if(char.bio) contentHtml += `<h3>Biography</h3><p style="line-height:1.6; color:#ddd;">${char.bio}</p>`;
@@ -1084,7 +1032,7 @@
                             rows += `<div class="lbo-level-item">
                                 <strong style="color:var(--text-muted); font-size:0.8rem; display:inline;">${lvl.title}</strong>: ${lvl.desc}`;
                             if(lvl.img && lvl.img.trim() !== "") {
-                                rows += `<div class="lbo-level-img-container"><img src="${resolveImg(lvl.img)}" data-orig-src="${lvl.img}" class="lbo-level-img" onerror="handleImgError(this)" referrerpolicy="no-referrer"></div>`;
+                                rows += `<div class="lbo-level-img-container"><img src="${lvl.img}" class="lbo-level-img" onerror="this.style.display='none'"></div>`;
                             }
                             rows += `</div>`;
                         }
@@ -1093,7 +1041,7 @@
                     
                     let bodyContent = `<div class="lbo-content-grid">`;
                     if(media.poster) {
-                        bodyContent += `<img src="${resolveImg(media.poster)}" data-orig-src="${media.poster}" class="lbo-poster" onerror="handleImgError(this)" referrerpolicy="no-referrer">`;
+                        bodyContent += `<img src="${media.poster}" class="lbo-poster" onerror="this.style.display='none'">`;
                     }
                     bodyContent += `<div class="lbo-level-list">${rows}</div></div>`;
 
@@ -1114,14 +1062,15 @@
                 contentHtml += `<div class="gwc-box">${vuContent}</div>`; 
             }
             if(char.skins) { 
-                contentHtml += `<div class="gwc-box" style="border-left:none; background:transparent; padding:0;">${formatSkins(char.skins, char)}</div>`; 
+                let s = char.skins; 
+                contentHtml += `<div class="gwc-box" style="border-left:none; background:transparent; padding:0;">${formatSkins(s, char)}</div>`; 
             }
         }
         const cx = char.imgCrop ? char.imgCrop.x : 50; 
         const cy = char.imgCrop ? char.imgCrop.y : 50;
         const cz = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
         
-        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${resolveImg(char.img)}" data-orig-src="${char.img}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" onerror="handleImgError(this)" referrerpolicy="no-referrer"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
+        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${char.img || 'https://via.placeholder.com/300?text=No+Image'}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" onerror="this.src='https://via.placeholder.com/300?text=Error'"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
         
         const container = document.getElementById('wikiPageContainer');
         container.innerHTML = fullHtml;
@@ -1183,7 +1132,7 @@
         let html = '<div class="skins-container">';
         let sortState = { foundMain: false };
 
-        function renderRecursive(items, prefix) {
+        function renderRecursive(items, displayPrefix, keyPrefix) {
             let directSkins = [];
             let subCats = [];
             let firstIsString = (items.length > 0 && typeof items[0] === 'string');
@@ -1193,51 +1142,58 @@
             });
             if(firstIsString) {
                 if(directSkins.length > 0) {
-                    let catName = prefix || "Misc.";
-                    html += renderSkinGroup(catName, directSkins, char, sortState);
+                    let catName = displayPrefix || "Misc.";
+                    html += renderSkinGroup(catName, directSkins, char, sortState, keyPrefix || "");
                 }
                 subCats.forEach(cat => {
-                    let newPrefix = prefix ? `${prefix} › ${cat.name}` : cat.name;
-                    renderRecursive(cat.items, newPrefix);
+                    let newDisplay = displayPrefix ? `${displayPrefix} › ${cat.name}` : cat.name;
+                    let newKey = keyPrefix ? `${keyPrefix}::${cat.name}` : cat.name;
+                    renderRecursive(cat.items, newDisplay, newKey);
                 });
             } else {
                 subCats.forEach(cat => {
-                    let newPrefix = prefix ? `${prefix} › ${cat.name}` : cat.name;
-                    renderRecursive(cat.items, newPrefix);
+                    let newDisplay = displayPrefix ? `${displayPrefix} › ${cat.name}` : cat.name;
+                    let newKey = keyPrefix ? `${keyPrefix}::${cat.name}` : cat.name;
+                    renderRecursive(cat.items, newDisplay, newKey);
                 });
                 if(directSkins.length > 0) {
-                    let catName = prefix || "Misc.";
-                    html += renderSkinGroup(catName, directSkins, char, sortState);
+                    let catName = displayPrefix || "Misc.";
+                    html += renderSkinGroup(catName, directSkins, char, sortState, keyPrefix || "");
                 }
             }
         }
 
-        renderRecursive(tree, "");
+        renderRecursive(tree, "", "");
         return html + '</div>';
     }
 
-    function renderSkinGroup(category, skinList, char, sortState) {
+    function renderSkinGroup(category, skinList, char, sortState, keyPath) {
         let html = `<div class="skin-group"><div class="skin-cat">${category}</div><div class="skin-tags">`;
         skinList.forEach(s => {
             const isFirst = !sortState.foundMain;
             if (isFirst) sortState.foundMain = true;
 
+            const uniqueKey = keyPath ? keyPath + "::" + s : s;
+
             let cssClass = 'skin-pill'; 
-            let dataAttrs = `data-id="${char.id}" data-name="${escapeSkinName(s)}"`; 
+            let dataAttrs = `data-id="${char.id}" data-name="${escapeSkinName(s)}" data-key="${escapeSkinName(uniqueKey)}"`; 
             let events = '';
             
             if (isFirst) { 
                 cssClass += ' main-skin'; 
-                dataAttrs += ` data-is-main="true"`;
-                events = `onclick="handleSkinClick(this)"`; 
+                dataAttrs += ` data-is-main="true"`; 
+                events = `onclick="viewSkin(this)"`; 
             } else { 
                 const isGwcog = s.toLowerCase().includes('gwcog') || category.toLowerCase().includes('gwcog'); 
-                const data = (char.skinImages && char.skinImages[s]); 
+                const data = (char.skinImages && (char.skinImages[uniqueKey] || char.skinImages[s])); 
+                
                 if(isGwcog) cssClass += ' gwcog'; 
                 if(data) { 
                     cssClass += ' has-image'; 
                     dataAttrs += ` data-url="${data.url || data}" data-x="${data.x || 50}" data-y="${data.y || 50}" data-z="${data.z || 1}"`; 
-                    events = `onclick="handleSkinClick(this)" onmouseenter="handleSkinHover(this, event)" onmouseleave="hideTooltip()" onmousemove="moveTooltip(event)"`; 
+                    events = `onclick="viewSkin(this)" onmouseenter="handleSkinHover(this, event)" onmouseleave="hideTooltip()" onmousemove="moveTooltip(event)"`; 
+                } else { 
+                    // No events if no image for read only, except maybe a placeholder toast
                 }
             }
             html += `<span class="${cssClass}" ${dataAttrs} ${events}>${s}</span>`;
@@ -1246,38 +1202,15 @@
         return html;
     }
 
-    function handleSkinClick(el) { 
-        const url = el.getAttribute('data-url');
-        const isMain = el.getAttribute('data-is-main') === 'true';
-        const name = el.getAttribute('data-name');
-        
-        // In Read-only mode, only open if there is an image URL to show
-        if (isMain) {
-            const charId = parseInt(el.getAttribute('data-id'));
-            const chars = getChars();
-            const char = chars.find(c => c.id === charId);
-            if(char && char.img) {
-                openSkinModal(name, resolveImg(char.img), char.imgCrop, char.img);
-            }
-        } else if (url) {
-            const x = el.getAttribute('data-x'); 
-            const y = el.getAttribute('data-y'); 
-            const z = el.getAttribute('data-z') || 1;
-            openSkinModal(name, resolveImg(url), {x, y, z}, url);
-        }
-    }
-    
     function handleSkinHover(el, e) { 
         const url = el.getAttribute('data-url'); 
         const x = el.getAttribute('data-x'); 
         const y = el.getAttribute('data-y'); 
         const z = el.getAttribute('data-z') || 1; 
-        if(url) showTooltip(e, resolveImg(url), x, y, z, url); 
+        if(url) showTooltip(e, url, x, y, z); 
     }
     
-    function hideTooltip() { 
-        document.getElementById('skinTooltip').style.display = 'none'; 
-    }
+    function hideTooltip() { document.getElementById('skinTooltip').style.display = 'none'; }
     
     function moveTooltip(e) { 
         const tooltip = document.getElementById('skinTooltip'); 
@@ -1285,12 +1218,9 @@
         tooltip.style.top = (e.clientY + 15) + 'px'; 
     }
     
-    function showTooltip(e, url, x, y, z, origUrl) { 
+    function showTooltip(e, url, x, y, z) { 
         const tooltip = document.getElementById('skinTooltip'); 
         const tooltipImg = document.getElementById('skinTooltipImg'); 
-        tooltipImg.dataset.origSrc = origUrl;
-        tooltipImg.dataset.hasFallback = "false";
-        tooltipImg.onerror = function() { handleImgError(this); };
         tooltipImg.src = url; 
         tooltipImg.style.objectPosition = `${x}% ${y}%`; 
         tooltipImg.style.transform = `scale(${z})`; 
@@ -1299,19 +1229,47 @@
         moveTooltip(e); 
     }
 
-    function openSkinModal(skinName, url, crop = {x:50,y:50,z:1}, origUrl) {
-        document.getElementById('skinModalNameDisplay').innerText = skinName;
+    function viewSkin(el) {
+        const id = parseInt(el.getAttribute('data-id'));
+        const name = el.getAttribute('data-name');
+        const isMain = el.getAttribute('data-is-main') === 'true';
+        const key = el.getAttribute('data-key');
         
-        const prev = document.getElementById('skinPreviewImg'); 
-        prev.dataset.origSrc = origUrl;
-        prev.dataset.hasFallback = "false";
-        prev.onerror = function() { handleImgError(this); };
-        prev.src = url; 
-        prev.style.objectPosition = `${crop.x}% ${crop.y}%`; 
-        prev.style.transform = `scale(${crop.z})`; 
-        prev.style.transformOrigin = `${crop.x}% ${crop.y}%`;
+        const chars = getChars();
+        const char = chars.find(c => c.id === id);
         
-        document.getElementById('skinOverlay').classList.add('active');
+        if(!char) return;
+
+        let url, x, y, z;
+        const display = document.getElementById('skinModalNameDisplay');
+        const img = document.getElementById('skinPreviewImg');
+
+        if(isMain) {
+            display.innerText = name + " (Main)";
+            url = char.img;
+            x = char.imgCrop ? char.imgCrop.x : 50;
+            y = char.imgCrop ? char.imgCrop.y : 50;
+            z = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
+        } else {
+            display.innerText = name;
+            const data = (char.skinImages && (char.skinImages[key] || char.skinImages[name]));
+            if(data) {
+                url = (typeof data === 'string') ? data : data.url; 
+                x = (typeof data === 'string') ? 50 : (data.x || 50); 
+                y = (typeof data === 'string') ? 50 : (data.y || 50); 
+                z = (typeof data === 'string' || !data.z) ? 1 : data.z; 
+            } else {
+                return; // Do nothing if no image exists in read only
+            }
+        }
+
+        if(url) {
+            img.src = url;
+            img.style.objectPosition = `${x}% ${y}%`; 
+            img.style.transform = `scale(${z})`; 
+            img.style.transformOrigin = `${x}% ${y}%`;
+            document.getElementById('skinOverlay').classList.add('active');
+        }
     }
 
     function closeSkinModalDirect() { document.getElementById('skinOverlay').classList.remove('active'); }
@@ -1361,7 +1319,6 @@
         document.getElementById('search').value = ""; 
         await renderMainView(); 
     }
-
 </script>
 
 </body>

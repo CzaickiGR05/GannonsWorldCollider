@@ -365,7 +365,7 @@
         <h2 class="skin-modal-title"><span id="skinModalNameDisplay">Skin Name</span></h2>
         <div id="skinViewArea">
             <div class="skin-preview-wrapper">
-                <img id="skinPreviewImg" class="skin-preview" src="" referrerpolicy="no-referrer">
+                <img id="skinPreviewImg" class="skin-preview" src="" referrerpolicy="no-referrer" onerror="document.getElementById('skinViewArea').style.display='none'">
             </div>
             <button class="btn secondary" style="width: 100%;" onclick="closeSkinModalDirect()">Close Preview</button>
         </div>
@@ -985,7 +985,12 @@
         if(currentView === 'search') subText = `<div style="font-size:0.8rem; color:#aaa;">${char.universe}</div>`;
         else if(char.subcategory) subText = `<div class="card-sub">${char.subcategory}</div>`;
         
-        card.innerHTML = `<div class="card-img-wrapper"><img src="${getSafeUrl(char.img) || 'https://via.placeholder.com/300?text=No+Image'}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/300?text=No+Image'"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
+        let imgHtml = "";
+        if (char.img && char.img.trim() !== '') {
+            imgHtml = `<div class="card-img-wrapper"><img src="${getSafeUrl(char.img)}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`;
+        }
+        
+        card.innerHTML = `${imgHtml}<div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
         
         container.appendChild(card);
     }
@@ -1070,7 +1075,12 @@
         const cy = char.imgCrop ? char.imgCrop.y : 50;
         const cz = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
         
-        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${getSafeUrl(char.img) || 'https://via.placeholder.com/300?text=No+Image'}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/300?text=No+Image'"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
+        let portraitHtml = "";
+        if (char.img && char.img.trim() !== '') {
+            portraitHtml = `<div class="wiki-portrait-wrapper"><img src="${getSafeUrl(char.img)}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`;
+        }
+        
+        const fullHtml = `<div class="wiki-sidebar">${portraitHtml}${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
         
         const container = document.getElementById('wikiPageContainer');
         container.innerHTML = fullHtml;

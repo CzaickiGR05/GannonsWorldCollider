@@ -388,10 +388,13 @@
         if (!url || typeof url !== 'string' || url.trim() === '') return '';
         let cleanUrl = url.trim();
 
+        // 1. Strip out placeholders entirely
+        if (cleanUrl.includes('via.placeholder.com')) return '';
+
         // Pass through local blobs/data
         if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) return cleanUrl;
 
-        // 1. Extract true URL if it was accidentally saved with a proxy wrapper (e.g. raw?url=...)
+        // 2. Extract true URL if it was accidentally saved with a proxy wrapper (e.g. raw?url=...)
         if (cleanUrl.includes('url=')) {
             try {
                 const match = cleanUrl.match(/url=([^&]+)/);
@@ -404,7 +407,7 @@
             }
         }
 
-        // 2. Fandom/Wikia Specific Bypass
+        // 3. Fandom/Wikia Specific Bypass
         // Fandom's static CDN heavily blocks hotlinking. The legacy 'vignette' domain does not.
         if (cleanUrl.includes('wikia.nocookie.net')) {
             // Strip Fandom revision parameters which trigger strict cache restrictions
@@ -493,7 +496,9 @@
         if(ytId) { 
             return `<div class="gwc-media-embed"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="fallback-link"><a href="https://www.youtube.com/watch?v=${ytId}" target="_blank">⚠️ Video not playing? Watch on YouTube</a></div></div>`; 
         } 
-        return `<div class="gwc-media-embed"><img src="${getSafeUrl(url)}" referrerpolicy="no-referrer" onerror="this.style.display='none'"></div>`; 
+        const safeUrl = getSafeUrl(url);
+        if(!safeUrl) return '';
+        return `<div class="gwc-media-embed"><img src="${safeUrl}" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`; 
     }
     
     function toggleVehiclePreview(btn) { 
@@ -554,8 +559,13 @@
         const meta = readOnlyMeta;
         const bgLayer = document.getElementById('customBgLayer');
 
-        if(currentView === 'franchise' && selectedFranchise && meta[selectedFranchise] && meta[selectedFranchise].bg) {
-            bgLayer.style.backgroundImage = `url('${getSafeUrl(meta[selectedFranchise].bg)}')`;
+        let bgUrl = '';
+        if (currentView === 'franchise' && selectedFranchise && meta[selectedFranchise]) {
+            bgUrl = getSafeUrl(meta[selectedFranchise].bg);
+        }
+
+        if(bgUrl) {
+            bgLayer.style.backgroundImage = `url('${bgUrl}')`;
             bgLayer.classList.add('active'); 
             document.body.classList.add('has-custom-bg');
         } else {
@@ -664,9 +674,9 @@
                     const bubble = document.createElement('div');
                     bubble.className = 'franchise-bubble';
                     bubble.onclick = () => viewFranchise(f);
-                    const hasLogo = meta[f] && meta[f].logo;
+                    const safeLogo = meta[f] ? getSafeUrl(meta[f].logo) : '';
                     let content = `<h2>${f}</h2>`;
-                    if(hasLogo) content = `<img src="${getSafeUrl(meta[f].logo)}" class="franchise-logo-img" alt="${f}" referrerpolicy="no-referrer">`;
+                    if(safeLogo) content = `<img src="${safeLogo}" class="franchise-logo-img" alt="${f}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
                     
                     const franchiseChars = chars.filter(c => c.universe === f);
                     const charCount = franchiseChars.length;
@@ -986,8 +996,9 @@
         else if(char.subcategory) subText = `<div class="card-sub">${char.subcategory}</div>`;
         
         let imgHtml = "";
-        if (char.img && char.img.trim() !== '') {
-            imgHtml = `<div class="card-img-wrapper"><img src="${getSafeUrl(char.img)}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`;
+        const safeImg = getSafeUrl(char.img);
+        if (safeImg) {
+            imgHtml = `<div class="card-img-wrapper"><img src="${safeImg}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`;
         }
         
         card.innerHTML = `${imgHtml}<div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
@@ -1036,8 +1047,9 @@
                         if(lvl.title || lvl.desc) {
                             rows += `<div class="lbo-level-item">
                                 <strong style="color:var(--text-muted); font-size:0.8rem; display:inline;">${lvl.title}</strong>: ${lvl.desc}`;
-                            if(lvl.img && lvl.img.trim() !== "") {
-                                rows += `<div class="lbo-level-img-container"><img src="${getSafeUrl(lvl.img)}" class="lbo-level-img" referrerpolicy="no-referrer" onerror="this.style.display='none'"></div>`;
+                            const safeLvlImg = getSafeUrl(lvl.img);
+                            if(safeLvlImg) {
+                                rows += `<div class="lbo-level-img-container"><img src="${safeLvlImg}" class="lbo-level-img" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`;
                             }
                             rows += `</div>`;
                         }
@@ -1045,8 +1057,9 @@
                     if(rows === "") rows = "<span style='color:#777;'>No levels defined.</span>"; 
                     
                     let bodyContent = `<div class="lbo-content-grid">`;
-                    if(media.poster) {
-                        bodyContent += `<img src="${getSafeUrl(media.poster)}" class="lbo-poster" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+                    const safePoster = getSafeUrl(media.poster);
+                    if(safePoster) {
+                        bodyContent += `<img src="${safePoster}" class="lbo-poster" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
                     }
                     bodyContent += `<div class="lbo-level-list">${rows}</div></div>`;
 
@@ -1076,8 +1089,9 @@
         const cz = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
         
         let portraitHtml = "";
-        if (char.img && char.img.trim() !== '') {
-            portraitHtml = `<div class="wiki-portrait-wrapper"><img src="${getSafeUrl(char.img)}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`;
+        const safePortrait = getSafeUrl(char.img);
+        if (safePortrait) {
+            portraitHtml = `<div class="wiki-portrait-wrapper"><img src="${safePortrait}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`;
         }
         
         const fullHtml = `<div class="wiki-sidebar">${portraitHtml}${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
@@ -1087,8 +1101,9 @@
 
         // Apply custom background if available
         const wikiPageEl = container.parentElement;
-        if (char.bgImg && char.bgImg.trim() !== '') {
-            wikiPageEl.style.background = `linear-gradient(rgba(19, 21, 24, 0.75), rgba(19, 21, 24, 0.95)), url('${getSafeUrl(char.bgImg).replace(/'/g, "\\'")}')`;
+        const safeBg = getSafeUrl(char.bgImg);
+        if (safeBg) {
+            wikiPageEl.style.background = `linear-gradient(rgba(19, 21, 24, 0.75), rgba(19, 21, 24, 0.95)), url('${safeBg.replace(/'/g, "\\'")}')`;
             wikiPageEl.style.backgroundSize = 'cover';
             wikiPageEl.style.backgroundPosition = 'center';
         } else {
@@ -1250,9 +1265,11 @@
     }
     
     function showTooltip(e, url, x, y, z) { 
+        const safeUrl = getSafeUrl(url);
+        if(!safeUrl) return;
         const tooltip = document.getElementById('skinTooltip'); 
         const tooltipImg = document.getElementById('skinTooltipImg'); 
-        tooltipImg.src = getSafeUrl(url); 
+        tooltipImg.src = safeUrl; 
         tooltipImg.style.objectPosition = `${x}% ${y}%`; 
         tooltipImg.style.transform = `scale(${z})`; 
         tooltipImg.style.transformOrigin = `${x}% ${y}%`; 
@@ -1282,9 +1299,10 @@
             } 
         }
         
-        if(url) { 
+        const safeUrl = getSafeUrl(url);
+        if(safeUrl) { 
             const prev = document.getElementById('skinPreviewImg'); 
-            prev.src = getSafeUrl(url); 
+            prev.src = safeUrl; 
             prev.style.objectPosition = `${x}% ${y}%`; 
             prev.style.transform = `scale(${z})`; 
             prev.style.transformOrigin = `${x}% ${y}%`;

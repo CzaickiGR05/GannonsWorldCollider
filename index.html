@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <title>GWC Wiki | Read-Only Viewer</title>
     <style>
         :root {
@@ -392,13 +393,12 @@
     let characterPlaylist = []; 
     let currentPlaylistIndex = -1;
 
-    // --- CORS BYPASS PROXY ---
+    // --- HOTLINK BYPASS ---
     function getSafeUrl(url) {
         if (!url || typeof url !== 'string' || url.trim() === '') return '';
-        if (url.startsWith('data:') || url.startsWith('blob:')) return url;
-        if (url.includes('via.placeholder.com')) return url;
-        // Use allorigins to bypass CORS and Hotlink restrictions
-        return `https://api.allorigins.win/raw?url=${encodeURIComponent(url.trim())}`;
+        // The <meta name="referrer" content="no-referrer"> tag in the head 
+        // natively bypasses Fandom/Wikia/Imgur hotlink blocks without needing a proxy.
+        return url.trim();
     }
 
     // --- INITIALIZATION ---

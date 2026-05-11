@@ -392,6 +392,15 @@
     let characterPlaylist = []; 
     let currentPlaylistIndex = -1;
 
+    // --- CORS BYPASS PROXY ---
+    function getSafeUrl(url) {
+        if (!url || typeof url !== 'string' || url.trim() === '') return '';
+        if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+        if (url.includes('via.placeholder.com')) return url;
+        // Use allorigins to bypass CORS and Hotlink restrictions
+        return `https://api.allorigins.win/raw?url=${encodeURIComponent(url.trim())}`;
+    }
+
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', async () => {
         try {
@@ -467,7 +476,7 @@
         if(ytId) { 
             return `<div class="gwc-media-embed"><iframe src="https://www.youtube-nocookie.com/embed/${ytId}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="fallback-link"><a href="https://www.youtube.com/watch?v=${ytId}" target="_blank">⚠️ Video not playing? Watch on YouTube</a></div></div>`; 
         } 
-        return `<div class="gwc-media-embed"><img src="${url}" onerror="this.style.display='none'"></div>`; 
+        return `<div class="gwc-media-embed"><img src="${getSafeUrl(url)}" onerror="this.style.display='none'"></div>`; 
     }
     
     function toggleVehiclePreview(btn) { 
@@ -529,7 +538,7 @@
         const bgLayer = document.getElementById('customBgLayer');
 
         if(currentView === 'franchise' && selectedFranchise && meta[selectedFranchise] && meta[selectedFranchise].bg) {
-            bgLayer.style.backgroundImage = `url('${meta[selectedFranchise].bg}')`;
+            bgLayer.style.backgroundImage = `url('${getSafeUrl(meta[selectedFranchise].bg)}')`;
             bgLayer.classList.add('active'); 
             document.body.classList.add('has-custom-bg');
         } else {
@@ -640,7 +649,7 @@
                     bubble.onclick = () => viewFranchise(f);
                     const hasLogo = meta[f] && meta[f].logo;
                     let content = `<h2>${f}</h2>`;
-                    if(hasLogo) content = `<img src="${meta[f].logo}" class="franchise-logo-img" alt="${f}">`;
+                    if(hasLogo) content = `<img src="${getSafeUrl(meta[f].logo)}" class="franchise-logo-img" alt="${f}">`;
                     
                     const franchiseChars = chars.filter(c => c.universe === f);
                     const charCount = franchiseChars.length;
@@ -671,7 +680,7 @@
             const hasSubcats = filtered.some(c => c.subcategory && c.subcategory.trim() !== "");
             const hasLogo = meta[selectedFranchise] && meta[selectedFranchise].logo;
             let headerContent = `<h2 style="margin:0; font-size:2rem;">${selectedFranchise}</h2>`;
-            if(hasLogo) headerContent = `<img src="${meta[selectedFranchise].logo}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));">`;
+            if(hasLogo) headerContent = `<img src="${getSafeUrl(meta[selectedFranchise].logo)}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));">`;
             
             let mediumName = (meta[selectedFranchise] && meta[selectedFranchise].medium) ? meta[selectedFranchise].medium : "Uncategorized";
             
@@ -987,7 +996,7 @@
                 const img = new Image();
                 img.onload = () => resolve(true);
                 img.onerror = () => resolve(false);
-                img.src = url;
+                img.src = getSafeUrl(url);
             });
         };
 
@@ -1012,7 +1021,7 @@
         if(currentView === 'search') subText = `<div style="font-size:0.8rem; color:#aaa;">${char.universe}</div>`;
         else if(char.subcategory) subText = `<div class="card-sub">${char.subcategory}</div>`;
         
-        card.innerHTML = `<div class="error-badge" title="Broken Image Detected">!</div><div class="card-img-wrapper"><img src="${char.img || 'https://via.placeholder.com/300?text=No+Image'}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" onerror="this.src='https://via.placeholder.com/300?text=Error'"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
+        card.innerHTML = `<div class="error-badge" title="Broken Image Detected">!</div><div class="card-img-wrapper"><img src="${getSafeUrl(char.img) || 'https://via.placeholder.com/300?text=No+Image'}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" onerror="this.src='https://via.placeholder.com/300?text=Error'"></div><div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
         
         checkCharImages(char, card);
         container.appendChild(card);
@@ -1060,7 +1069,7 @@
                             rows += `<div class="lbo-level-item">
                                 <strong style="color:var(--text-muted); font-size:0.8rem; display:inline;">${lvl.title}</strong>: ${lvl.desc}`;
                             if(lvl.img && lvl.img.trim() !== "") {
-                                rows += `<div class="lbo-level-img-container"><img src="${lvl.img}" class="lbo-level-img" onerror="this.style.display='none'"></div>`;
+                                rows += `<div class="lbo-level-img-container"><img src="${getSafeUrl(lvl.img)}" class="lbo-level-img" onerror="this.style.display='none'"></div>`;
                             }
                             rows += `</div>`;
                         }
@@ -1069,7 +1078,7 @@
                     
                     let bodyContent = `<div class="lbo-content-grid">`;
                     if(media.poster) {
-                        bodyContent += `<img src="${media.poster}" class="lbo-poster" onerror="this.style.display='none'">`;
+                        bodyContent += `<img src="${getSafeUrl(media.poster)}" class="lbo-poster" onerror="this.style.display='none'">`;
                     }
                     bodyContent += `<div class="lbo-level-list">${rows}</div></div>`;
 
@@ -1098,7 +1107,7 @@
         const cy = char.imgCrop ? char.imgCrop.y : 50;
         const cz = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
         
-        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${char.img || 'https://via.placeholder.com/300?text=No+Image'}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" onerror="this.src='https://via.placeholder.com/300?text=Error'"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
+        const fullHtml = `<div class="wiki-sidebar"><div class="wiki-portrait-wrapper"><img src="${getSafeUrl(char.img) || 'https://via.placeholder.com/300?text=No+Image'}" class="wiki-portrait" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" onerror="this.src='https://via.placeholder.com/300?text=Error'"></div>${metaHtml}</div><div class="wiki-content">${contentHtml}</div>`;
         
         const container = document.getElementById('wikiPageContainer');
         container.innerHTML = fullHtml;
@@ -1106,7 +1115,7 @@
         // Apply custom background if available
         const wikiPageEl = container.parentElement;
         if (char.bgImg && char.bgImg.trim() !== '') {
-            wikiPageEl.style.background = `linear-gradient(rgba(19, 21, 24, 0.75), rgba(19, 21, 24, 0.95)), url('${char.bgImg.replace(/'/g, "\\'")}')`;
+            wikiPageEl.style.background = `linear-gradient(rgba(19, 21, 24, 0.75), rgba(19, 21, 24, 0.95)), url('${getSafeUrl(char.bgImg).replace(/'/g, "\\'")}')`;
             wikiPageEl.style.backgroundSize = 'cover';
             wikiPageEl.style.backgroundPosition = 'center';
         } else {
@@ -1270,7 +1279,7 @@
     function showTooltip(e, url, x, y, z) { 
         const tooltip = document.getElementById('skinTooltip'); 
         const tooltipImg = document.getElementById('skinTooltipImg'); 
-        tooltipImg.src = url; 
+        tooltipImg.src = getSafeUrl(url); 
         tooltipImg.style.objectPosition = `${x}% ${y}%`; 
         tooltipImg.style.transform = `scale(${z})`; 
         tooltipImg.style.transformOrigin = `${x}% ${y}%`; 
@@ -1302,7 +1311,7 @@
         
         if(url) { 
             const prev = document.getElementById('skinPreviewImg'); 
-            prev.src = url; 
+            prev.src = getSafeUrl(url); 
             prev.style.objectPosition = `${x}% ${y}%`; 
             prev.style.transform = `scale(${z})`; 
             prev.style.transformOrigin = `${x}% ${y}%`;

@@ -388,7 +388,7 @@
         if (!url || typeof url !== 'string' || url.trim() === '') return '';
         let cleanUrl = url.trim();
 
-        // 1. Strip out placeholders entirely
+        // 1. Strip out browser placeholders entirely
         if (cleanUrl.includes('via.placeholder.com')) return '';
 
         // Pass through local blobs/data
@@ -399,7 +399,6 @@
             try {
                 const match = cleanUrl.match(/url=([^&]+)/);
                 if (match && match[1]) {
-                    // Decodes the URL back to its original format
                     cleanUrl = decodeURIComponent(match[1]);
                 }
             } catch (e) {
@@ -407,17 +406,20 @@
             }
         }
 
-        // 3. Fandom/Wikia Specific Bypass
-        // Fandom's static CDN heavily blocks hotlinking. The legacy 'vignette' domain does not.
-        if (cleanUrl.includes('wikia.nocookie.net')) {
-            // Strip Fandom revision parameters which trigger strict cache restrictions
-            cleanUrl = cleanUrl.split('/revision/latest')[0];
-            cleanUrl = cleanUrl.split('?')[0];
-            // Point to the looser vignette domain
-            cleanUrl = cleanUrl.replace('static.wikia.nocookie.net', 'vignette.wikia.nocookie.net');
+        // 3. Ignore relative/broken paths completely (like "KRtDLDX_Dream_Land.jpg")
+        if (!cleanUrl.startsWith('http')) {
+            return ''; // Hide invalid URLs immediately before they even attempt to load and 404
         }
 
-        // The HTML tags already have referrerpolicy="no-referrer" which handles the rest.
+        // 4. Fandom/Wikia Specific Bypass using wsrv.nl proxy
+        if (cleanUrl.includes('wikia.nocookie.net') || cleanUrl.includes('fandom.com')) {
+            // Remove tracking/revision tags that force aggressive cache validation on Fandom
+            cleanUrl = cleanUrl.split('/revision/latest')[0];
+            cleanUrl = cleanUrl.split('?')[0];
+            // Proxy via wsrv.nl to reliably strip headers and fetch real image (bypassing 200 OK placeholder)
+            return `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}`;
+        }
+
         return cleanUrl;
     }
 
@@ -707,7 +709,8 @@
             const hasSubcats = filtered.some(c => c.subcategory && c.subcategory.trim() !== "");
             const hasLogo = meta[selectedFranchise] && meta[selectedFranchise].logo;
             let headerContent = `<h2 style="margin:0; font-size:2rem;">${selectedFranchise}</h2>`;
-            if(hasLogo) headerContent = `<img src="${getSafeUrl(meta[selectedFranchise].logo)}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));">`;
+            const safeHeaderLogo = getSafeUrl(meta[selectedFranchise]?.logo);
+            if(safeHeaderLogo) headerContent = `<img src="${safeHeaderLogo}" style="height:60px; filter:drop-shadow(0 0 5px rgba(255,255,255,0.5));" onerror="this.style.display='none'">`;
             
             let mediumName = (meta[selectedFranchise] && meta[selectedFranchise].medium) ? meta[selectedFranchise].medium : "Uncategorized";
             
@@ -1030,12 +1033,14 @@
             contentHtml += `<h3>GWC Mechanics</h3>`;
             if(char.owl) { 
                 let owlContent = `<strong>Open World Location (OWL)</strong> ${char.owl}`; 
-                if(char.owlImg) owlContent += renderMediaBox(char.owlImg); 
+                const safeOwlImg = getSafeUrl(char.owlImg);
+                if(safeOwlImg) owlContent += renderMediaBox(safeOwlImg); 
                 contentHtml += `<div class="gwc-box">${owlContent}</div>`; 
             }
             if(char.um) { 
                 let umContent = `<strong>Ultimate Move (UM)</strong> ${char.um}`; 
-                if(char.umMedia) umContent += renderMediaBox(char.umMedia); 
+                const safeUmMedia = getSafeUrl(char.umMedia);
+                if(safeUmMedia) umContent += renderMediaBox(safeUmMedia); 
                 contentHtml += `<div class="gwc-box">${umContent}</div>`; 
             }
             
@@ -1074,8 +1079,9 @@
             if(char.vu || char.vuImg) { 
                 let vuName = char.vu || "Untitled Vehicle"; 
                 let vuContent = `<strong>Vehicle (VU)</strong> ${vuName}`; 
-                if(char.vuImg) { 
-                    vuContent += `<button class="vehicle-toggle-btn" onclick="toggleVehiclePreview(this)">▼ Preview</button><div class="vehicle-preview-container">${renderMediaBox(char.vuImg)}</div>`; 
+                const safeVuImg = getSafeUrl(char.vuImg);
+                if(safeVuImg) { 
+                    vuContent += `<button class="vehicle-toggle-btn" onclick="toggleVehiclePreview(this)">▼ Preview</button><div class="vehicle-preview-container">${renderMediaBox(safeVuImg)}</div>`; 
                 } 
                 contentHtml += `<div class="gwc-box">${vuContent}</div>`; 
             }

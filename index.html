@@ -393,12 +393,39 @@
     let characterPlaylist = []; 
     let currentPlaylistIndex = -1;
 
-    // --- HOTLINK BYPASS ---
+    // --- HOTLINK BYPASS & DATA CLEANER ---
     function getSafeUrl(url) {
         if (!url || typeof url !== 'string' || url.trim() === '') return '';
-        // We removed the proxy to prevent 408 timeouts. 
-        // We now rely purely on the native referrerpolicy="no-referrer" attribute on all tags.
-        return url.trim();
+        let cleanUrl = url.trim();
+
+        // Pass through local blobs/data
+        if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) return cleanUrl;
+
+        // 1. Extract true URL if it was accidentally saved with a proxy wrapper (e.g. raw?url=...)
+        if (cleanUrl.includes('url=')) {
+            try {
+                const match = cleanUrl.match(/url=([^&]+)/);
+                if (match && match[1]) {
+                    // Decodes the URL back to its original format
+                    cleanUrl = decodeURIComponent(match[1]);
+                }
+            } catch (e) {
+                console.warn("Could not decode URL:", cleanUrl);
+            }
+        }
+
+        // 2. Fandom/Wikia Specific Bypass
+        // Fandom's static CDN heavily blocks hotlinking. The legacy 'vignette' domain does not.
+        if (cleanUrl.includes('wikia.nocookie.net')) {
+            // Strip Fandom revision parameters which trigger strict cache restrictions
+            cleanUrl = cleanUrl.split('/revision/latest')[0];
+            cleanUrl = cleanUrl.split('?')[0];
+            // Point to the looser vignette domain
+            cleanUrl = cleanUrl.replace('static.wikia.nocookie.net', 'vignette.wikia.nocookie.net');
+        }
+
+        // The HTML tags already have referrerpolicy="no-referrer" which handles the rest.
+        return cleanUrl;
     }
 
     // --- INITIALIZATION ---

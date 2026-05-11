@@ -1105,9 +1105,12 @@
         const container = document.getElementById('wikiPageContainer');
         container.innerHTML = fullHtml;
 
-        // Apply custom background if available
+        // Apply custom background if available, fallback to OWL image
         const wikiPageEl = container.parentElement;
-        const safeBg = getSafeUrl(char.bgImg);
+        const activeBgImgRaw = (char.bgImg && char.bgImg.trim() !== '') ? char.bgImg : 
+                               (char.owlImg && char.owlImg.trim() !== '') ? char.owlImg : null;
+        const safeBg = getSafeUrl(activeBgImgRaw);
+
         if (safeBg) {
             wikiPageEl.style.background = `linear-gradient(rgba(19, 21, 24, 0.75), rgba(19, 21, 24, 0.95)), url('${safeBg.replace(/'/g, "\\'")}')`;
             wikiPageEl.style.backgroundSize = 'cover';

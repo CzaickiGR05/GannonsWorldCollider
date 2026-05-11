@@ -396,9 +396,15 @@
     // --- HOTLINK BYPASS ---
     function getSafeUrl(url) {
         if (!url || typeof url !== 'string' || url.trim() === '') return '';
-        // The <meta name="referrer" content="no-referrer"> tag in the head 
-        // natively bypasses Fandom/Wikia/Imgur hotlink blocks without needing a proxy.
-        return url.trim();
+        const cleanUrl = url.trim();
+        
+        // Pass through local blob/data URIs and placeholders
+        if (cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) return cleanUrl;
+        if (cleanUrl.includes('via.placeholder.com')) return cleanUrl;
+
+        // Use wsrv.nl (Images.weserv.nl), a dedicated, highly reliable image caching proxy.
+        // It automatically strips origin/referrer headers and bypasses Fandom/Wikia hotlink protections.
+        return `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}`;
     }
 
     // --- INITIALIZATION ---

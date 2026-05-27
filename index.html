@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer">
     <title>GWC Wiki | Read-Only Viewer</title>
+    <!-- Fuse.js for Fuzzy Search -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.js"></script>
     <style>
         :root {
             --primary: #ff4757;
@@ -14,6 +16,7 @@
             --glass-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
             --text-main: #ffffff;
             --text-muted: #a4b0be;
+            --input-bg: rgba(0, 0, 0, 0.3);
         }
 
         body {
@@ -63,7 +66,7 @@
         nav h1 b { font-weight: 700; color: var(--primary); }
         .nav-actions { display: flex; gap: 10px; }
 
-        /* Buttons */
+        /* Buttons & Selects */
         .btn {
             background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 20px;
             cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: transform 0.2s ease, box-shadow 0.2s ease; 
@@ -72,6 +75,14 @@
         .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(255, 71, 87, 0.4); }
         .btn.secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); }
         .btn.secondary:hover { background: rgba(255,255,255,0.2); }
+        
+        select {
+            padding: 8px 12px; background: var(--input-bg);
+            border: 1px solid var(--glass-border); color: white; border-radius: 8px; font-size: 0.85rem;
+            transition: border-color 0.2s; cursor: pointer;
+        }
+        select option { background: #1e272e; color: white; }
+        select:focus { outline: none; border-color: var(--primary); background: rgba(0,0,0,0.5); }
 
         /* Layout */
         .container { display: flex; flex: 1; overflow: hidden; position: relative; z-index: 1; }
@@ -146,21 +157,48 @@
 
         .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 25px; }
         .franchise-header-bar { display: flex; align-items: center; gap: 20px; margin-bottom: 30px; border-bottom: 2px solid var(--glass-border); padding-bottom: 20px; }
-        .back-btn { background: transparent; border: 1px solid var(--glass-border); color: var(--accent); padding: 8px 15px; border-radius: 20px; cursor: pointer; transition: all 0.2s; }
+        .back-btn { background: transparent; border: 1px solid var(--glass-border); color: var(--accent); padding: 8px 15px; border-radius: 20px; cursor: pointer; transition: all 0.2s; flex-shrink:0;}
         .back-btn:hover { background: rgba(46, 213, 115, 0.1); border-color: var(--accent); }
         
+        /* Virtualization Styles */
         .char-card { 
             background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 12px; 
             overflow: hidden; cursor: pointer; transition: transform 0.2s ease, border-color 0.2s ease; position: relative; 
             transform-style: preserve-3d;
+            min-height: 290px;
+            display: flex; flex-direction: column;
         }
         .char-card:hover { background: rgba(255,255,255,0.08); border-color: var(--primary); }
+        
+        .char-card.virtual-empty {
+            background: linear-gradient(90deg, rgba(255,255,255,0.02) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 75%);
+            background-size: 200% 100%;
+            animation: skeletonShimmer 1.5s infinite linear;
+            cursor: default;
+        }
+        @keyframes skeletonShimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
         .card-img { width: 100%; height: 220px; object-fit: cover; background-color: #000; opacity: 0.9; will-change: opacity; }
         .char-card:hover .card-img { opacity: 1; }
-        .card-info { padding: 15px; text-align: center; pointer-events: none; }
+        .card-info { padding: 15px; text-align: center; pointer-events: none; flex: 1; }
         .card-name { font-weight: 600; font-size: 1.1rem; letter-spacing: 0.5px; }
         .card-sub { font-size: 0.8rem; color: var(--accent); margin-top: 3px; font-style: italic; opacity: 0.8; }
         .card-img-wrapper { width: 100%; height: 220px; overflow: hidden; background-color: #000; position: relative; pointer-events: none; }
+
+        /* Error Indicator */
+        .error-badge {
+            position: absolute; top: 10px; left: 10px; background: #ff4757; color: white; width: 24px; height: 24px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;
+            font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 10; display: none; cursor: help;
+        }
+        .char-card.has-error { border-color: #ff4757; }
+        .char-card.has-error .error-badge {
+            display: flex; animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes bounceIn { from { transform: scale(0); } to { transform: scale(1); } }
 
         /* Modals & Wiki */
         .page-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: none; z-index: 100; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
@@ -346,7 +384,8 @@
 
 <div class="container">
     <div class="main-content">
-        <div class="search-wrapper"><input type="text" id="search" class="search-bar" placeholder="Search Characters, OWL, Media..." onkeyup="handleSearch()"></div>
+        <!-- Replaced handleSearch with debouncedSearch -->
+        <div class="search-wrapper"><input type="text" id="search" class="search-bar" placeholder="Search Characters, OWL, Media..." onkeyup="debouncedSearch()"></div>
         <div id="mainViewContainer"></div>
     </div>
 </div>
@@ -382,6 +421,37 @@
     let selectedFranchise = null;
     let characterPlaylist = []; 
     let currentPlaylistIndex = -1;
+    let currentlyOpenCharId = null;
+
+    let charSortMode = 'default';
+    let franchiseSortMode = 'char-desc';
+
+    // Virtualization / Lazy Renderer Setup
+    let cardObserver = null;
+    let charMapForVirtualization = new Map();
+
+    // --- UTILITIES (DEBOUNCE) ---
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+    const debouncedSearch = debounce(handleSearch, 300);
+
+    function saveAppState() {
+        const state = {
+            view: currentView,
+            medium: selectedMedium,
+            franchise: selectedFranchise,
+            search: document.getElementById('search').value,
+            charSortMode: charSortMode,
+            franchiseSortMode: franchiseSortMode,
+            openCharId: currentlyOpenCharId
+        };
+        sessionStorage.setItem('gwc_readonly_app_state', JSON.stringify(state));
+    }
 
     // --- HOTLINK BYPASS & DATA CLEANER ---
     function getSafeUrl(url) {
@@ -441,9 +511,27 @@
             return;
         }
 
+        const savedStateJson = sessionStorage.getItem('gwc_readonly_app_state');
+        if (savedStateJson) {
+            try {
+                const state = JSON.parse(savedStateJson);
+                currentView = state.view || 'home';
+                selectedMedium = state.medium || null;
+                selectedFranchise = state.franchise || null;
+                if (state.search) document.getElementById('search').value = state.search;
+                if (state.charSortMode) charSortMode = state.charSortMode;
+                if (state.franchiseSortMode) franchiseSortMode = state.franchiseSortMode;
+                currentlyOpenCharId = state.openCharId || null;
+            } catch(e) { console.error("Could not parse saved state", e); }
+        }
+
         await renderMainView();
         init3DTilt();
         
+        if (currentlyOpenCharId) {
+            await openPage(currentlyOpenCharId);
+        }
+
         document.addEventListener('keydown', (e) => {
             const overlay = document.getElementById('pageOverlay');
             if(overlay.classList.contains('active')) {
@@ -454,13 +542,14 @@
     });
 
     function init3DTilt() {
-        const targets = document.querySelectorAll('.medium-bubble, .franchise-bubble, .char-card, .glossary-card');
+        const targets = document.querySelectorAll('.medium-bubble, .franchise-bubble, .char-card:not(.virtual-empty), .glossary-card');
         targets.forEach(el => {
             if(el.dataset.tiltAttached) return; 
             el.dataset.tiltAttached = "true";
             el.classList.add('tilted-element');
 
             el.addEventListener('mousemove', (e) => {
+                if(el.classList.contains('virtual-empty')) return; // Ignore empty cards
                 const rect = el.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
@@ -476,6 +565,34 @@
                 el.style.transition = 'transform 0.4s ease-out'; 
                 el.style.transform = ''; 
             });
+        });
+    }
+
+    // --- VIRTUALIZATION OBSERVER SETUP ---
+    function initObserver() {
+        if (cardObserver) cardObserver.disconnect();
+
+        cardObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const card = entry.target;
+                const charId = parseInt(card.dataset.charId);
+                const char = charMapForVirtualization.get(charId);
+
+                if (!char) return;
+
+                if (entry.isIntersecting) {
+                    if (card.classList.contains('virtual-empty')) {
+                        populateCard(card, char);
+                    }
+                } else {
+                    if (!card.classList.contains('virtual-empty')) {
+                        depopulateCard(card);
+                    }
+                }
+            });
+        }, {
+            root: document.querySelector('.main-content'),
+            rootMargin: '600px 0px 600px 0px' 
         });
     }
 
@@ -536,6 +653,23 @@
     }
     
     function compareCharacters(a, b) {
+        if (charSortMode === 'name-asc') {
+            return a.name.localeCompare(b.name);
+        } else if (charSortMode === 'name-desc') {
+            return b.name.localeCompare(a.name);
+        } else if (charSortMode === 'year-asc') {
+            const faA = extractYearAndTitle(a.firstApp); 
+            const faB = extractYearAndTitle(b.firstApp);
+            if (faA.year !== faB.year) return faA.year - faB.year;
+            return a.name.localeCompare(b.name);
+        } else if (charSortMode === 'levels-desc') {
+            const levelsA = getLevelCount(a);
+            const levelsB = getLevelCount(b);
+            if (levelsA !== levelsB) return levelsB - levelsA;
+            return a.name.localeCompare(b.name);
+        }
+        
+        // Default
         const faA = extractYearAndTitle(a.firstApp); 
         const faB = extractYearAndTitle(b.firstApp);
         if (faA.year !== faB.year) return faA.year - faB.year;
@@ -547,7 +681,147 @@
         return a.name.localeCompare(b.name);
     }
 
-    /* --- RENDERER --- */
+    async function checkCharImages(char, cardEl) {
+        const urlsToCheck = new Set();
+        
+        const add = (url) => {
+            if(!url) return;
+            if(typeof url !== 'string') return;
+            const trim = url.trim();
+            if(trim === '') return;
+            if(getYouTubeId(trim)) return; 
+            urlsToCheck.add(trim);
+        }
+
+        add(char.img);
+        add(char.bgImg);
+        add(char.owlImg);
+        add(char.umMedia);
+        add(char.vuImg);
+
+        if (Array.isArray(char.lbo)) {
+            char.lbo.forEach(m => {
+                add(m.poster);
+                if(Array.isArray(m.levels)) {
+                    m.levels.forEach(l => add(l.img));
+                }
+            });
+        }
+
+        if (char.skinImages) {
+            Object.values(char.skinImages).forEach(val => {
+                if(typeof val === 'string') add(val);
+                else if(val && val.url) add(val.url);
+            });
+        }
+
+        if(urlsToCheck.size === 0) return;
+
+        const checkImage = (url) => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = getSafeUrl(url); // Ensure we check the proxied URL if needed
+            });
+        };
+
+        const promises = Array.from(urlsToCheck).map(checkImage);
+        const results = await Promise.all(promises);
+        
+        if(results.includes(false)) {
+            cardEl.classList.add('has-error');
+        }
+    }
+
+    // --- VIRTUALIZATION RENDERING ---
+    function renderCharCard(char, container) {
+        charMapForVirtualization.set(char.id, char); 
+
+        const card = document.createElement('div'); 
+        card.className = 'char-card virtual-empty'; 
+        card.dataset.charId = char.id;
+        card.onclick = () => openPage(char.id);
+        
+        container.appendChild(card);
+
+        if (cardObserver) cardObserver.observe(card);
+    }
+
+    // Called when the card intersects the viewport
+    function populateCard(card, char) {
+        const cx = char.imgCrop ? char.imgCrop.x : 50; 
+        const cy = char.imgCrop ? char.imgCrop.y : 50;
+        const cz = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
+        
+        let subText = "";
+        if(currentView === 'search') subText = `<div style="font-size:0.8rem; color:#aaa;">${char.universe}</div>`;
+        else if(char.subcategory) subText = `<div class="card-sub">${char.subcategory}</div>`;
+        
+        let extraInfo = "";
+        if (currentView === 'franchise') {
+            if (charSortMode === 'year-asc') {
+                const faInfo = extractYearAndTitle(char.firstApp);
+                const yearText = faInfo.year === 9999 ? "Unknown Year" : faInfo.year;
+                extraInfo = `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:5px; font-weight:bold; background:rgba(0,0,0,0.3); display:inline-block; padding:2px 6px; border-radius:10px;">📅 Year: ${yearText}</div>`;
+            } else if (charSortMode === 'levels-desc') {
+                const lvlCount = getLevelCount(char);
+                extraInfo = `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:5px; font-weight:bold; background:rgba(0,0,0,0.3); display:inline-block; padding:2px 6px; border-radius:10px;">🎮 Levels: ${lvlCount}</div>`;
+            }
+        }
+        
+        let imgHtml = `<div class="card-img-wrapper"><img src="https://via.placeholder.com/300?text=No+Image" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;"></div>`;
+        const safeImg = getSafeUrl(char.img);
+        if (safeImg) {
+            imgHtml = `<div class="card-img-wrapper"><img src="${safeImg}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" referrerpolicy="no-referrer" onerror="this.src='https://via.placeholder.com/300?text=Error'"></div>`;
+        }
+
+        card.innerHTML = `
+            <div class="error-badge" title="Broken Image Detected">!</div>
+            ${imgHtml}
+            <div class="card-info">
+                <div class="card-name">${char.name}</div>
+                ${subText}
+                ${extraInfo}
+            </div>
+        `;
+        card.classList.remove('virtual-empty');
+        checkCharImages(char, card); 
+
+        // Re-attach 3D Tilt specifically for this element since it wasn't there at initial render
+        if (!card.dataset.tiltAttached) {
+            init3DTiltForElement(card);
+        }
+    }
+
+    function init3DTiltForElement(el) {
+        el.dataset.tiltAttached = "true";
+        el.classList.add('tilted-element');
+        el.addEventListener('mousemove', (e) => {
+            if(el.classList.contains('virtual-empty')) return;
+            const rect = el.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = ((y - centerY) / centerY) * -8; 
+            const rotateY = ((x - centerX) / centerX) * 8;
+            el.style.transition = 'transform 0.05s linear'; 
+            el.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.04, 1.04, 1.04)`;
+        });
+        el.addEventListener('mouseleave', () => {
+            el.style.transition = 'transform 0.4s ease-out'; 
+            el.style.transform = ''; 
+        });
+    }
+
+    function depopulateCard(card) {
+        card.innerHTML = ''; 
+        card.classList.add('virtual-empty'); 
+        card.style.transform = ''; 
+    }
+
+    /* --- MAIN RENDERER (ASYNC) --- */
     async function renderMainView() {
         const container = document.getElementById('mainViewContainer'); 
         
@@ -560,6 +834,10 @@
         const chars = readOnlyChars;
         const meta = readOnlyMeta;
         const bgLayer = document.getElementById('customBgLayer');
+
+        // Reset Virtualization Map & Observer
+        charMapForVirtualization.clear();
+        initObserver();
 
         let bgUrl = '';
         if (currentView === 'franchise' && selectedFranchise && meta[selectedFranchise]) {
@@ -625,22 +903,30 @@
             
             const header = document.createElement('div');
             header.className = 'franchise-header-bar';
-            header.innerHTML = `<button class="back-btn" onclick="goHome()">← Back to Hub</button><h2 style="margin:0;">${selectedMedium}</h2>`;
+            
+            const titleArea = document.createElement('div');
+            titleArea.style.display = 'flex';
+            titleArea.style.alignItems = 'center';
+            titleArea.style.gap = '20px';
+            titleArea.style.flex = '1';
+            titleArea.innerHTML = `<button class="back-btn" onclick="goHome()">← Back to Hub</button><h2 style="margin:0;">${selectedMedium}</h2>`;
+
+            const sortSelect = document.createElement('select');
+            sortSelect.innerHTML = `
+                <option value="char-desc" ${franchiseSortMode === 'char-desc' ? 'selected' : ''}>Sort by Characters (Most First)</option>
+                <option value="lvl-desc" ${franchiseSortMode === 'lvl-desc' ? 'selected' : ''}>Sort by Levels (Most First)</option>
+                <option value="name-asc" ${franchiseSortMode === 'name-asc' ? 'selected' : ''}>Sort Alphabetically (A-Z)</option>
+            `;
+            sortSelect.onchange = (e) => {
+                franchiseSortMode = e.target.value;
+                saveAppState();
+                renderMainView();
+            };
+
+            header.appendChild(titleArea);
+            header.appendChild(sortSelect);
             frag.appendChild(header);
             
-            let groups = {};
-            let noGroup = [];
-            
-            myFranchises.forEach(f => {
-                if (meta[f] && meta[f].group && meta[f].group.trim() !== "") {
-                    let g = meta[f].group.trim();
-                    if(!groups[g]) groups[g] = [];
-                    groups[g].push(f);
-                } else {
-                    noGroup.push(f);
-                }
-            });
-
             const getFranchiseLevelCount = (charList) => {
                 let count = 0;
                 charList.forEach(c => {
@@ -653,6 +939,31 @@
                 return count;
             };
             
+            const sortFranchiseList = (list) => {
+                return list.sort((a, b) => {
+                    if (franchiseSortMode === 'name-asc') {
+                        return a.localeCompare(b);
+                    }
+                    
+                    const charsA = chars.filter(c => c.universe === a);
+                    const charsB = chars.filter(c => c.universe === b);
+                    
+                    if (franchiseSortMode === 'lvl-desc') {
+                        const levelsA = getFranchiseLevelCount(charsA);
+                        const levelsB = getFranchiseLevelCount(charsB);
+                        if (levelsA !== levelsB) return levelsB - levelsA;
+                        return a.localeCompare(b);
+                    }
+                    
+                    // Default: char-desc
+                    if (charsA.length !== charsB.length) return charsB.length - charsA.length;
+                    const levelsA = getFranchiseLevelCount(charsA);
+                    const levelsB = getFranchiseLevelCount(charsB);
+                    if (levelsA !== levelsB) return levelsB - levelsA;
+                    return a.localeCompare(b);
+                });
+            };
+
             const renderGrid = (list, title) => {
                 if(list.length === 0) return;
                 const section = document.createElement('div');
@@ -662,15 +973,7 @@
                 const grid = document.createElement('div');
                 grid.className = 'franchise-grid';
                 
-                list.sort((a, b) => {
-                    const charsA = chars.filter(c => c.universe === a);
-                    const charsB = chars.filter(c => c.universe === b);
-                    if (charsA.length !== charsB.length) return charsB.length - charsA.length;
-                    const levelsA = getFranchiseLevelCount(charsA);
-                    const levelsB = getFranchiseLevelCount(charsB);
-                    if (levelsA !== levelsB) return levelsB - levelsA;
-                    return a.localeCompare(b);
-                });
+                sortFranchiseList(list);
 
                 list.forEach(f => {
                     const bubble = document.createElement('div');
@@ -692,21 +995,37 @@
                 frag.appendChild(section);
             };
 
-            Object.keys(groups).sort((a, b) => {
-                const lenA = groups[a].length;
-                const lenB = groups[b].length;
-                if(lenA !== lenB) return lenB - lenA; 
-                return a.localeCompare(b); 
-            }).forEach(g => renderGrid(groups[g], g));
-            
-            renderGrid(noGroup, Object.keys(groups).length > 0 ? "General" : null);
+            if (franchiseSortMode === 'char-desc') {
+                let groups = {};
+                let noGroup = [];
+                
+                myFranchises.forEach(f => {
+                    if (meta[f] && meta[f].group && meta[f].group.trim() !== "") {
+                        let g = meta[f].group.trim();
+                        if(!groups[g]) groups[g] = [];
+                        groups[g].push(f);
+                    } else {
+                        noGroup.push(f);
+                    }
+                });
+
+                Object.keys(groups).sort((a, b) => {
+                    const lenA = groups[a].length;
+                    const lenB = groups[b].length;
+                    if(lenA !== lenB) return lenB - lenA; 
+                    return a.localeCompare(b); 
+                }).forEach(g => renderGrid(groups[g], g));
+                
+                renderGrid(noGroup, Object.keys(groups).length > 0 ? "General" : null);
+            } else {
+                renderGrid(myFranchises, null);
+            }
         }
 
         else if (currentView === 'franchise') {
             const filtered = chars.filter(c => c.universe === selectedFranchise);
             filtered.sort(compareCharacters);
             
-            const hasSubcats = filtered.some(c => c.subcategory && c.subcategory.trim() !== "");
             const hasLogo = meta[selectedFranchise] && meta[selectedFranchise].logo;
             let headerContent = `<h2 style="margin:0; font-size:2rem;">${selectedFranchise}</h2>`;
             const safeHeaderLogo = getSafeUrl(meta[selectedFranchise]?.logo);
@@ -716,7 +1035,30 @@
             
             const header = document.createElement('div');
             header.className = 'franchise-header-bar';
-            header.innerHTML = `<button class="back-btn" onclick="viewMedium('${mediumName}')">← Back to ${mediumName}</button>${headerContent}`;
+            
+            const titleArea = document.createElement('div');
+            titleArea.style.display = 'flex';
+            titleArea.style.alignItems = 'center';
+            titleArea.style.gap = '20px';
+            titleArea.style.flex = '1';
+            titleArea.innerHTML = `<button class="back-btn" onclick="viewMedium('${mediumName}')">← Back to ${mediumName}</button>${headerContent}`;
+
+            const sortSelect = document.createElement('select');
+            sortSelect.innerHTML = `
+                <option value="default" ${charSortMode === 'default' ? 'selected' : ''}>Default Sort (Year/Level)</option>
+                <option value="name-asc" ${charSortMode === 'name-asc' ? 'selected' : ''}>Alphabetical (A-Z)</option>
+                <option value="name-desc" ${charSortMode === 'name-desc' ? 'selected' : ''}>Alphabetical (Z-A)</option>
+                <option value="year-asc" ${charSortMode === 'year-asc' ? 'selected' : ''}>Release Year (Oldest First)</option>
+                <option value="levels-desc" ${charSortMode === 'levels-desc' ? 'selected' : ''}>Level Count (Most to Least)</option>
+            `;
+            sortSelect.onchange = (e) => {
+                charSortMode = e.target.value;
+                saveAppState();
+                renderMainView();
+            };
+
+            header.appendChild(titleArea);
+            header.appendChild(sortSelect);
             frag.appendChild(header);
 
             if (filtered.length === 0) {
@@ -726,7 +1068,7 @@
                  emptyMsg.innerHTML = `<div style="color:var(--text-muted); font-size:1.2rem; margin-bottom:20px;">No characters found in this franchise.</div>`;
                  frag.appendChild(emptyMsg);
             }
-            else if (hasSubcats) {
+            else if (charSortMode === 'default' && filtered.some(c => c.subcategory && c.subcategory.trim() !== "")) {
                 let subGroups = {};
                 filtered.forEach(c => {
                     let sub = c.subcategory ? c.subcategory.trim() : "General";
@@ -749,7 +1091,7 @@
                 orderedKeys.forEach(sub => {
                     const titleDiv = document.createElement('div');
                     titleDiv.className = 'subcat-title';
-                    titleDiv.innerHTML = `${sub}`;
+                    titleDiv.innerHTML = `<span>${sub}</span>`;
                     frag.appendChild(titleDiv);
 
                     const grid = document.createElement('div'); 
@@ -773,31 +1115,31 @@
             }
 
         } else if (currentView === 'search') {
-            const query = document.getElementById('search').value.toLowerCase();
+            const query = document.getElementById('search').value.trim();
             
-            const filtered = chars.filter(c => {
-                if (c.name.toLowerCase().includes(query)) return true;
-                if (c.universe.toLowerCase().includes(query)) return true;
-                if (c.subcategory && c.subcategory.toLowerCase().includes(query)) return true;
-                if (c.firstApp && c.firstApp.toLowerCase().includes(query)) return true;
-                if (c.owl && c.owl.toLowerCase().includes(query)) return true;
+            // FUSE.JS FUZZY SEARCH SETUP
+            const fuseOptions = {
+                keys: [
+                    'name',
+                    'universe',
+                    'subcategory',
+                    'title',
+                    'firstApp',
+                    'owl',
+                    'lbo.media', // Nested properties
+                    'lbo'        // If string
+                ],
+                threshold: 0.35, 
+                ignoreLocation: true,
+                useExtendedSearch: true
+            };
 
-                if (c.lbo) {
-                    if (Array.isArray(c.lbo)) {
-                        if (c.lbo.some(m => m.media && m.media.toLowerCase().includes(query))) return true;
-                    } else if (typeof c.lbo === 'string') {
-                        if (c.lbo.toLowerCase().includes(query)) return true;
-                    }
-                }
-                
-                return false;
-            });
-
-            filtered.sort(compareCharacters); 
+            const fuse = new Fuse(chars, fuseOptions);
+            let filtered = fuse.search(query).map(result => result.item);
             
             const h3 = document.createElement('h3');
             h3.style.marginTop = '0';
-            h3.innerText = 'Global Search Results';
+            h3.innerText = `Search Results: ${filtered.length} found`;
             frag.appendChild(h3);
             
             const grid = document.createElement('div');
@@ -983,35 +1325,19 @@
         
         container.appendChild(frag);
         init3DTilt();
-    }
-
-    function renderCharCard(char, container) {
-        const card = document.createElement('div'); 
-        card.className = 'char-card'; 
-        card.onclick = () => openPage(char.id);
-        
-        const cx = char.imgCrop ? char.imgCrop.x : 50; 
-        const cy = char.imgCrop ? char.imgCrop.y : 50;
-        const cz = char.imgCrop && char.imgCrop.z ? char.imgCrop.z : 1;
-        
-        let subText = "";
-        if(currentView === 'search') subText = `<div style="font-size:0.8rem; color:#aaa;">${char.universe}</div>`;
-        else if(char.subcategory) subText = `<div class="card-sub">${char.subcategory}</div>`;
-        
-        let imgHtml = "";
-        const safeImg = getSafeUrl(char.img);
-        if (safeImg) {
-            imgHtml = `<div class="card-img-wrapper"><img src="${safeImg}" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.style.display='none'"></div>`;
-        }
-        
-        card.innerHTML = `${imgHtml}<div class="card-info"><div class="card-name">${char.name}</div>${subText}</div>`;
-        
-        container.appendChild(card);
+        saveAppState();
     }
 
     function openPage(id, direction = 0) {
         const char = readOnlyChars.find(c => c.id === id); 
-        if(!char) return;
+        if(!char) {
+            currentlyOpenCharId = null;
+            saveAppState();
+            return;
+        }
+        
+        currentlyOpenCharId = id;
+        saveAppState();
         
         currentPlaylistIndex = characterPlaylist.indexOf(id);
 
@@ -1323,12 +1649,16 @@
     }
 
     function closeSkinModalDirect() { document.getElementById('skinOverlay').classList.remove('active'); }
-    function closePageDirect() { document.getElementById('pageOverlay').classList.remove('active'); }
+    function closePageDirect() { 
+        document.getElementById('pageOverlay').classList.remove('active'); 
+        currentlyOpenCharId = null;
+        saveAppState();
+    }
     function closePage(e) { if(e.target.id === 'pageOverlay') closePageDirect(); }
     function closeSkinModal(e) { if(e.target.id === 'skinOverlay') closeSkinModalDirect(); }
     
     async function handleSearch() { 
-        const query = document.getElementById('search').value.trim().toLowerCase(); 
+        const query = document.getElementById('search').value.trim(); 
         if(query.length > 0) { 
             currentView = 'search'; 
             await renderMainView(); 

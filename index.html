@@ -17,6 +17,7 @@
             --text-main: #ffffff;
             --text-muted: #a4b0be;
             --input-bg: rgba(0, 0, 0, 0.3);
+            --gold: #f1c40f;
         }
 
         body {
@@ -230,6 +231,26 @@
         .wiki-title span { font-size: 1.4rem; color: var(--accent); font-style: italic; font-weight: 300; display: block; margin-top: 5px; }
         .wiki-quote { font-size: 1.1rem; color: rgba(255, 255, 255, 0.9); font-style: italic; margin-top: 15px; padding-left: 15px; border-left: 3px solid rgba(255, 255, 255, 0.3); font-family: 'Segoe UI', serif; }
 
+        /* Gannoid Badge & Custom Tooltip */
+        .gannoid-badge-wrapper { position: relative; display: inline-block; margin-top: 15px; }
+        .gannoid-badge {
+            background: linear-gradient(45deg, rgba(241, 196, 15, 0.1), rgba(241, 196, 15, 0.05));
+            border: 1px solid rgba(241, 196, 15, 0.5); color: var(--gold); padding: 8px 18px; 
+            border-radius: 20px; font-weight: bold; font-size: 1.1rem; 
+            box-shadow: 0 4px 15px rgba(241, 196, 15, 0.15); cursor: help;
+        }
+        .gannoid-tooltip {
+            visibility: hidden; opacity: 0; position: absolute; top: 100%; left: 0; 
+            margin-top: 10px; background: rgba(0,0,0,0.9); border: 1px solid var(--gold); 
+            padding: 15px; border-radius: 8px; font-size: 0.85rem; color: #ddd; width: 280px; 
+            z-index: 100; box-shadow: 0 10px 40px rgba(0,0,0,0.9); backdrop-filter: blur(10px);
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); font-family: monospace; line-height: 1.6; pointer-events: none;
+            transform: translateY(10px);
+        }
+        .gannoid-badge-wrapper:hover .gannoid-tooltip { visibility: visible; opacity: 1; transform: translateY(0); }
+        .gannoid-tooltip strong { color: var(--gold); }
+        .gannoid-tooltip .neg { color: #ff4757; }
+
         h3 { color: var(--text-main); margin-top: 35px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; font-weight: 300; letter-spacing: 1px; }
         .gwc-box { background: rgba(0, 0, 0, 0.2); border: 1px solid var(--glass-border); border-left: 4px solid var(--primary); padding: 15px; margin: 15px 0; border-radius: 0 8px 8px 0; line-height: 1.6; color: #ddd; backdrop-filter: blur(5px); }
         .gwc-box strong { color: var(--primary); font-size: 0.85rem; text-transform: uppercase; display: block; margin-bottom: 5px; }
@@ -384,7 +405,6 @@
 
 <div class="container">
     <div class="main-content">
-        <!-- Replaced handleSearch with debouncedSearch -->
         <div class="search-wrapper"><input type="text" id="search" class="search-bar" placeholder="Search Characters, OWL, Media..." onkeyup="debouncedSearch()"></div>
         <div id="mainViewContainer"></div>
     </div>
@@ -642,6 +662,126 @@
         return { year, title };
     }
     
+    // --- GANNOIDS ECONOMY LOGIC ---
+    function calculateLevelGannoids(c) {
+        let cost = 0;
+        if (Array.isArray(c.lbo)) {
+            c.lbo.forEach(m => { 
+                if(m.levels) {
+                    let count = m.levels.length;
+                    cost += Math.min(count, 5) * 500 + Math.max(0, count - 5) * 250;
+                }
+            });
+        } else if (c.lbo && typeof c.lbo === 'string') {
+            let count = c.lbo.split('\n').filter(l => l.trim().length > 0).length;
+            cost += Math.min(count, 5) * 500 + Math.max(0, count - 5) * 250;
+        }
+        return cost;
+    }
+    
+    function getSkinCount(char) {
+        let count = 0;
+        if (char.skins) {
+            const tree = parseSkinTree(char.skins);
+            function countS(items) {
+                items.forEach(item => {
+                    if (typeof item === 'string') count++;
+                    else if (item.type === 'category') countS(item.items);
+                });
+            }
+            countS(tree);
+        }
+        return count;
+    }
+
+    function buildGannoidStats(chars) {
+        const stats = { franchise: {}, subcat: {} };
+        chars.forEach(c => {
+            stats.franchise[c.universe] = (stats.franchise[c.universe] || 0) + 1;
+            const subKey = c.universe + "::" + (c.subcategory || 'General');
+            stats.subcat[subKey] = (stats.subcat[subKey] || 0) + 1;
+        });
+        return stats;
+    }
+
+    function calculateGannoids(char, gannoidStats) {
+        let cost = 1000;
+        cost += calculateLevelGannoids(char);
+        cost += (getSkinCount(char) * 250);
+
+        if (char.vu && char.vu.trim() !== '') cost += 1000;
+
+        const faInfo = extractYearAndTitle(char.firstApp);
+        if (faInfo.year !== 9999) {
+            const age = 2026 - faInfo.year;
+            if (age > 0) {
+                if (age > 500) cost += (500 * 15) + ((age - 500) * 5); 
+                else cost += age * 15;
+            }
+        }
+
+        const fCount = gannoidStats.franchise[char.universe] || 1;
+        const subKey = char.universe + "::" + (char.subcategory || 'General');
+        const sCount = gannoidStats.subcat[subKey] || 1;
+
+        let fMultiplier = 10;
+        if (cost >= 20000) fMultiplier = 100;
+        else if (cost >= 10000) fMultiplier = 50;
+        else if (cost >= 5000) fMultiplier = 25;
+
+        const discount = (sCount * 30) + (fCount * fMultiplier);
+        return Math.max(100, Math.floor(cost - discount));
+    }
+
+    function getGannoidBreakdownHtml(char, gannoidStats) {
+        let html = "<strong>Base Value:</strong> 1,000<br>";
+        let preDiscountCost = 1000;
+        
+        const levels = getLevelCount(char);
+        const levelCost = calculateLevelGannoids(char);
+        if(levels > 0) {
+            html += `<strong>+ Levels (${levels}):</strong> ${levelCost.toLocaleString()}<br>`;
+            preDiscountCost += levelCost;
+        }
+        
+        const skinsCount = getSkinCount(char);
+        if(skinsCount > 0) {
+            html += `<strong>+ Skins (${skinsCount}):</strong> ${(skinsCount * 250).toLocaleString()}<br>`;
+            preDiscountCost += (skinsCount * 250);
+        }
+
+        if (char.vu && char.vu.trim() !== '') {
+            html += `<strong>+ Vehicle (VU):</strong> 1,000<br>`;
+            preDiscountCost += 1000;
+        }
+
+        const faInfo = extractYearAndTitle(char.firstApp);
+        if (faInfo.year !== 9999) {
+            const age = 2026 - faInfo.year;
+            if (age > 0) {
+                let ageBonus = 0;
+                if (age > 500) ageBonus = (500 * 15) + ((age - 500) * 5); 
+                else ageBonus = age * 15;
+                html += `<strong>+ Age Bonus (${age} yrs):</strong> ${ageBonus.toLocaleString()}<br>`;
+                preDiscountCost += ageBonus;
+            }
+        }
+
+        const fCount = gannoidStats.franchise[char.universe] || 1;
+        const subKey = char.universe + "::" + (char.subcategory || 'General');
+        const sCount = gannoidStats.subcat[subKey] || 1;
+
+        let fMultiplier = 10;
+        if (preDiscountCost >= 20000) fMultiplier = 100;
+        else if (preDiscountCost >= 10000) fMultiplier = 50;
+        else if (preDiscountCost >= 5000) fMultiplier = 25;
+
+        if(sCount > 1) { html += `<span class="neg">- Subcategory Size (${sCount}): -${sCount * 30}</span><br>`; }
+        if(fCount > 1) { html += `<span class="neg">- Franchise Size (${fCount}): -${fCount * fMultiplier}</span><br>`; }
+
+        return html;
+    }
+    
     function getLevelCount(c) {
         let count = 0;
         if (Array.isArray(c.lbo)) {
@@ -653,6 +793,19 @@
     }
     
     function compareCharacters(a, b) {
+        if (charSortMode === 'gannoids-desc') {
+            const costA = calculateGannoids(a, window.globalGannoidStats);
+            const costB = calculateGannoids(b, window.globalGannoidStats);
+            if (costA !== costB) return costB - costA;
+            return a.name.localeCompare(b.name);
+        }
+        if (charSortMode === 'gannoids-asc') {
+            const costA = calculateGannoids(a, window.globalGannoidStats);
+            const costB = calculateGannoids(b, window.globalGannoidStats);
+            if (costA !== costB) return costA - costB;
+            return a.name.localeCompare(b.name);
+        }
+
         if (charSortMode === 'name-asc') {
             return a.name.localeCompare(b.name);
         } else if (charSortMode === 'name-desc') {
@@ -770,6 +923,8 @@
             }
         }
         
+        const gCost = window.globalGannoidStats ? calculateGannoids(char, window.globalGannoidStats).toLocaleString() : "???";
+
         let imgHtml = `<div class="card-img-wrapper"><img src="https://via.placeholder.com/300?text=No+Image" class="card-img" style="object-position: ${cx}% ${cy}%; transform: scale(${cz}); transform-origin: ${cx}% ${cy}%;"></div>`;
         const safeImg = getSafeUrl(char.img);
         if (safeImg) {
@@ -778,6 +933,7 @@
 
         card.innerHTML = `
             <div class="error-badge" title="Broken Image Detected">!</div>
+            <div style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85); border:1px solid #f1c40f; color:#f1c40f; font-size:0.75rem; padding:4px 8px; border-radius:12px; font-weight:800; z-index:5; box-shadow:0 4px 10px rgba(0,0,0,0.5); backdrop-filter:blur(4px);" title="Gannoids Character Cost">🪙 ${gCost}</div>
             ${imgHtml}
             <div class="card-info">
                 <div class="card-name">${char.name}</div>
@@ -834,6 +990,8 @@
         const chars = readOnlyChars;
         const meta = readOnlyMeta;
         const bgLayer = document.getElementById('customBgLayer');
+
+        window.globalGannoidStats = buildGannoidStats(readOnlyChars);
 
         // Reset Virtualization Map & Observer
         charMapForVirtualization.clear();
@@ -1050,6 +1208,8 @@
                 <option value="name-desc" ${charSortMode === 'name-desc' ? 'selected' : ''}>Alphabetical (Z-A)</option>
                 <option value="year-asc" ${charSortMode === 'year-asc' ? 'selected' : ''}>Release Year (Oldest First)</option>
                 <option value="levels-desc" ${charSortMode === 'levels-desc' ? 'selected' : ''}>Level Count (Most to Least)</option>
+                <option value="gannoids-desc" ${charSortMode === 'gannoids-desc' ? 'selected' : ''}>Price: High to Low</option>
+                <option value="gannoids-asc" ${charSortMode === 'gannoids-asc' ? 'selected' : ''}>Price: Low to High</option>
             `;
             sortSelect.onchange = (e) => {
                 charSortMode = e.target.value;
@@ -1164,6 +1324,13 @@
                 
                 <h3 style="text-align:center; border:none; margin-bottom:30px;">Glossary of Terms</h3>
                 <div class="glossary-grid">
+                    <div class="glossary-card">
+                        <span class="term-title" style="color:var(--gold);">Gannoids <span>Currency</span></span>
+                        <div class="term-desc">
+                            The official in-game currency of GWC. Characters are priced dynamically based on their amount of content (Levels/Skins), their age (older characters are prized artifacts), and how populated their franchise/subcategory is!
+                        </div>
+                    </div>
+
                     <div class="glossary-card">
                         <span class="term-title">OWL <span>Open World Location</span></span>
                         <div class="term-desc">
@@ -1280,6 +1447,22 @@
             
             const pieStyle = distinctMediums.length > 0 ? `--segments: ${conicSegments.join(', ')}` : 'background: #333';
 
+            // Top 5 Expensive Characters Leaderboard
+            const charsWithStats = chars.map(c => ({ char: c, cost: calculateGannoids(c, window.globalGannoidStats) }));
+            charsWithStats.sort((a,b) => b.cost - a.cost);
+            const top5Expensive = charsWithStats.slice(0, 5);
+
+            let expensiveLeaderboardHtml = `<div class="leaderboard-list">`;
+            top5Expensive.forEach((item, index) => {
+                expensiveLeaderboardHtml += `
+                    <div class="lb-item" onclick="openPage(${item.char.id})" style="cursor:pointer; border-color: ${index===0?'#f1c40f':(index===1?'#c0c0c0':(index===2?'#cd7f32':'transparent'))};">
+                        <span class="lb-rank" style="color: #f1c40f;">#${index + 1}</span>
+                        <span class="lb-name">${item.char.name}</span>
+                        <span class="lb-count" style="color:#f1c40f; background:rgba(241,196,15,0.1); border:1px solid rgba(241,196,15,0.3);">🪙 ${item.cost.toLocaleString()}</span>
+                    </div>`;
+            });
+            expensiveLeaderboardHtml += `</div>`;
+
             const sortedYears = Object.keys(yearsMap).sort((a,b) => a - b);
             let timelineHtml = '<div class="timeline-container">';
             sortedYears.forEach(year => {
@@ -1306,6 +1489,11 @@
                     <div class="stats-panel">
                         <h3>Biggest Franchises</h3>
                         ${leaderboardHtml}
+                    </div>
+                    
+                    <div class="stats-panel">
+                        <h3>Most Expensive Characters</h3>
+                        ${expensiveLeaderboardHtml}
                     </div>
 
                     <div class="stats-panel">
@@ -1351,7 +1539,17 @@
         let contentHtml = `<div class="wiki-title"><h1>${char.name}</h1>`;
         if(char.title) contentHtml += `<span>"${char.title}"</span>`;
         if(char.quote) contentHtml += `<div class="wiki-quote">"${char.quote}"</div>`;
-        contentHtml += `</div>`;
+        
+        // Calculate Gannoids!
+        const gStats = window.globalGannoidStats || buildGannoidStats(readOnlyChars);
+        const gCost = calculateGannoids(char, gStats).toLocaleString();
+        const costBreakdownHtml = getGannoidBreakdownHtml(char, gStats);
+
+        contentHtml += `</div>
+        <div class="gannoid-badge-wrapper">
+            <div class="gannoid-badge">🪙 ${gCost} Gannoids</div>
+            <div class="gannoid-tooltip">${costBreakdownHtml}</div>
+        </div>`;
         
         if(char.bio) contentHtml += `<h3>Biography</h3><p style="line-height:1.6; color:#ddd;">${char.bio}</p>`;
         

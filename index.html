@@ -668,6 +668,28 @@
         sessionStorage.setItem('gwc_app_state', JSON.stringify(state));
     }
 
+    // --- WIKIA URL STRIPPER ---
+    // Fandom/Wikia blocks hotlinking on their scaled/revision endpoints.
+    // This recursively strips those parameters, serving the base image instead.
+    function fixWikiaUrls(obj) {
+        if (typeof obj === 'string') {
+            if (obj.includes('wikia.nocookie.net') && obj.includes('/revision/')) {
+                const match = obj.match(/(https?:\/\/.*wikia\.nocookie\.net\/.*?\.(?:png|jpg|jpeg|gif|webp))/i);
+                if (match) return match[1];
+            }
+            return obj;
+        } else if (Array.isArray(obj)) {
+            for (let i = 0; i < obj.length; i++) {
+                obj[i] = fixWikiaUrls(obj[i]);
+            }
+        } else if (typeof obj === 'object' && obj !== null) {
+            for (const key in obj) {
+                obj[key] = fixWikiaUrls(obj[key]);
+            }
+        }
+        return obj;
+    }
+
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', async () => {
         window.scrollTo(0, 0);
@@ -684,9 +706,10 @@
             const response = await fetch('data.json');
             if(response.ok) {
                 const data = await response.json();
-                wikiData.chars = data.chars || [];
-                wikiData.meta = data.meta || {};
-                wikiData.bundles = data.bundles || {};
+                const cleanedData = fixWikiaUrls(data);
+                wikiData.chars = cleanedData.chars || [];
+                wikiData.meta = cleanedData.meta || {};
+                wikiData.bundles = cleanedData.bundles || {};
             } else {
                 console.error("Failed to load data.json (Not Ok)");
             }

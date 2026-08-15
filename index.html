@@ -572,6 +572,18 @@
             <div class="skin-preview-wrapper" style="background:transparent; border:none; display:flex; justify-content:center;">
                 <img id="skinPreviewImg" class="skin-preview" src="" style="object-fit:contain; cursor:zoom-in; box-shadow:0 10px 30px rgba(0,0,0,0.5);" onclick="openLightbox(this.src)">
             </div>
+            
+            <div id="skinMetadataDisplay" style="text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px solid var(--glass-border); display: none;">
+                <div id="skinFirstAppDisplayContainer" style="margin-bottom: 8px;">
+                    <strong style="color: var(--primary); font-size: 0.85rem; text-transform: uppercase;">First Appearance</strong>
+                    <div id="skinFirstAppDisplay" style="color: #ddd; font-size: 0.95rem; margin-top: 2px;"></div>
+                </div>
+                <div id="skinBlurbDisplayContainer">
+                    <strong style="color: var(--primary); font-size: 0.85rem; text-transform: uppercase;">Origins</strong>
+                    <div id="skinBlurbDisplay" style="color: #ccc; font-size: 0.9rem; margin-top: 2px; line-height: 1.5;"></div>
+                </div>
+            </div>
+
             <div style="display:flex; justify-content:center; margin-top:20px;">
                 <button class="btn secondary" onclick="closeSkinModalDirect()">Close</button>
             </div>
@@ -3148,12 +3160,31 @@
         
         document.getElementById('skinModalNameDisplay').innerText = skinName; 
         
+        const data = (char.skinImages && (char.skinImages[uniqueKey] || char.skinImages[skinName])) || {}; 
+        const fApp = data.firstApp || "";
+        const blurb = data.blurb || "";
+        
+        const metaContainer = document.getElementById('skinMetadataDisplay');
+        if (metaContainer) {
+            if (fApp || blurb) {
+                metaContainer.style.display = 'block';
+                document.getElementById('skinFirstAppDisplayContainer').style.display = fApp ? 'block' : 'none';
+                document.getElementById('skinFirstAppDisplay').innerText = fApp;
+                document.getElementById('skinBlurbDisplayContainer').style.display = blurb ? 'block' : 'none';
+                document.getElementById('skinBlurbDisplay').innerText = blurb;
+            } else {
+                metaContainer.style.display = 'none';
+            }
+        }
+
         if (isMainImage) { 
             document.getElementById('skinModalNameDisplay').innerText = skinName + " (Main)"; 
+            if(metaContainer) metaContainer.style.display = 'none';
             url = char.img; 
         } else { 
-            const data = (char.skinImages && (char.skinImages[uniqueKey] || char.skinImages[skinName])); 
-            if(data) url = (typeof data === 'string') ? data : data.url; 
+            if(data.url || typeof data === 'string') {
+                url = (typeof data === 'string') ? data : data.url; 
+            }
         }
         
         if(url) { 

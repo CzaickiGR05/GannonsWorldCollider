@@ -553,7 +553,7 @@
 
 <div class="container">
     <div class="main-content">
-        <div class="search-wrapper"><input type="text" id="search" class="search-bar" placeholder="Search Characters, OWL, Media..." onkeyup="debouncedSearch()"></div>
+        <div class="search-wrapper"><input type="text" id="search" class="search-bar" placeholder="Search Characters, Franchises, OWL, Media..." onkeyup="debouncedSearch()"></div>
         <div id="mainViewContainer"></div>
     </div>
 </div>
@@ -1597,6 +1597,79 @@
         } 
         else if (currentView === 'search') {
             const query = document.getElementById('search').value.trim();
+
+            const allFranchises = await getAllFranchiseNames();
+            const franchiseList = allFranchises.map(f => ({
+                name: f,
+                group: (meta[f] && meta[f].group) ? meta[f].group : ''
+            }));
+            const franchiseFuse = new Fuse(franchiseList, {
+                keys: ['name', 'group'],
+                threshold: 0.35,
+                ignoreLocation: true,
+                useExtendedSearch: true
+            });
+            const matchedFranchises = franchiseFuse.search(query).map(result => result.item.name);
+
+            if (matchedFranchises.length > 0) {
+                const fHeader = document.createElement('h3');
+                fHeader.style.marginTop = '0';
+                fHeader.innerText = `Franchises Found: ${matchedFranchises.length}`;
+                frag.appendChild(fHeader);
+
+                const fGrid = document.createElement('div');
+                fGrid.className = 'franchise-grid';
+                fGrid.style.marginBottom = '40px';
+                frag.appendChild(fGrid);
+
+                const FRANCHISE_BATCH_SIZE = 8;
+                let fRenderedCount = 0;
+
+                const fLoadMoreWrapper = document.createElement('div');
+                fLoadMoreWrapper.style.textAlign = 'center';
+                fLoadMoreWrapper.style.marginBottom = '40px';
+                fLoadMoreWrapper.style.display = 'none';
+
+                const fLoadMoreBtn = document.createElement('button');
+                fLoadMoreBtn.className = 'btn secondary';
+                fLoadMoreWrapper.appendChild(fLoadMoreBtn);
+                frag.appendChild(fLoadMoreWrapper);
+
+                const renderNextFranchiseBatch = () => {
+                    const nextBatch = matchedFranchises.slice(fRenderedCount, fRenderedCount + FRANCHISE_BATCH_SIZE);
+                    nextBatch.forEach(f => {
+                        const bubble = document.createElement('div');
+                        bubble.className = 'franchise-bubble';
+                        bubble.onclick = () => viewFranchise(f);
+                        const hasLogo = meta[f] && meta[f].logo;
+                        let content = `<h2>${f}</h2>`;
+                        if(hasLogo) content = `<img src="${meta[f].logo}" class="franchise-logo-img" alt="${f}">`;
+                        
+                        const franchiseChars = chars.filter(c => c.universe === f);
+                        const charCount = franchiseChars.length;
+                        const levelCount = getFranchiseLevelCount(franchiseChars);
+                        const badgeText = `${charCount} Char${charCount!==1?'s':''} | ${levelCount} Lvl${levelCount!==1?'s':''}`;
+                        
+                        bubble.innerHTML = `${content}<div class="franchise-count-badge" style="pointer-events: auto;">${badgeText}</div>`;
+                        init3DTiltForElement(bubble);
+                        fGrid.appendChild(bubble);
+                    });
+                    fRenderedCount += nextBatch.length;
+                    const remaining = matchedFranchises.length - fRenderedCount;
+                    if (remaining > 0) {
+                        fLoadMoreBtn.innerText = `Load More Franchises (${remaining} remaining)`;
+                        fLoadMoreWrapper.style.display = 'block';
+                        fGrid.style.marginBottom = '20px';
+                    } else {
+                        fLoadMoreWrapper.style.display = 'none';
+                        fGrid.style.marginBottom = '40px';
+                    }
+                };
+
+                fLoadMoreBtn.onclick = renderNextFranchiseBatch;
+                renderNextFranchiseBatch();
+            }
+
             const fuseOptions = {
                 keys: ['name', 'actor', 'universe', 'subcategory', 'title', 'firstApp', 'owl', 'lbo.media', 'lbo'],
                 threshold: 0.35, ignoreLocation: true, useExtendedSearch: true
@@ -1605,17 +1678,45 @@
             let filtered = fuse.search(query).map(result => result.item);
 
             const h3 = document.createElement('h3');
-            h3.style.marginTop = '0';
-            h3.innerText = `Search Results: ${filtered.length} found`;
+            if (matchedFranchises.length === 0) h3.style.marginTop = '0';
+            h3.innerText = `Characters Found: ${filtered.length}`;
             frag.appendChild(h3);
             
             const grid = document.createElement('div');
             grid.className = 'char-grid';
-            filtered.forEach(char => {
-                characterPlaylist.push(char.id);
-                renderCharCard(char, grid);
-            });
             frag.appendChild(grid);
+
+            const SEARCH_BATCH_SIZE = 24;
+            let renderedCount = 0;
+
+            const loadMoreWrapper = document.createElement('div');
+            loadMoreWrapper.style.textAlign = 'center';
+            loadMoreWrapper.style.marginTop = '30px';
+            loadMoreWrapper.style.display = 'none';
+
+            const loadMoreBtn = document.createElement('button');
+            loadMoreBtn.className = 'btn secondary';
+            loadMoreWrapper.appendChild(loadMoreBtn);
+            frag.appendChild(loadMoreWrapper);
+
+            const renderNextSearchBatch = () => {
+                const nextBatch = filtered.slice(renderedCount, renderedCount + SEARCH_BATCH_SIZE);
+                nextBatch.forEach(char => {
+                    characterPlaylist.push(char.id);
+                    renderCharCard(char, grid);
+                });
+                renderedCount += nextBatch.length;
+                const remaining = filtered.length - renderedCount;
+                if (remaining > 0) {
+                    loadMoreBtn.innerText = `Load More Characters (${remaining} remaining)`;
+                    loadMoreWrapper.style.display = 'block';
+                } else {
+                    loadMoreWrapper.style.display = 'none';
+                }
+            };
+
+            loadMoreBtn.onclick = renderNextSearchBatch;
+            renderNextSearchBatch();
         }
         
         else if (currentView === 'actor') {
@@ -2833,7 +2934,7 @@
         let metaHtml = `<div class="wiki-meta">`;
         if(char.realName) metaHtml += `<p><strong>Real Name</strong> ${char.realName}</p>`;
         if(char.actor && char.actor !== 'None') metaHtml += `<p><strong>Played By</strong> <a onclick="viewActor('${char.actor.replace(/'/g, "\\'")}')" style="color:var(--accent); text-decoration:none; cursor:pointer;">${char.actor}</a></p>`;
-        metaHtml += `<p><strong>Universe</strong> ${char.universe}</p>`;
+        metaHtml += `<p><strong>Universe</strong> <a onclick="viewFranchise('${char.universe.replace(/'/g, "\\'")}')" style="color:var(--accent); text-decoration:none; cursor:pointer;">${char.universe}</a></p>`;
         if(char.subcategory) metaHtml += `<p><strong>Subcategory</strong> ${char.subcategory}</p>`;
         if(char.firstApp) metaHtml += `<p><strong>First Appearance</strong> ${char.firstApp}</p>`;
         if (char.bundles && char.bundles.length > 0) {
@@ -3244,6 +3345,7 @@
     }
     
     async function viewFranchise(franchiseName) { 
+        closePageDirect();
         currentView = 'franchise'; 
         selectedFranchise = franchiseName; 
         await renderMainView(); 

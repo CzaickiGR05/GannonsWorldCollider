@@ -628,6 +628,168 @@
     let currentlyOpenCharId = null;
     let initialScrollRestored = false;
     let targetScrollPos = 0;
+    let navigationHistory = [];
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function captureCurrentPageState(overrideSearch = undefined) {
+        const mainContent = document.querySelector('.main-content');
+        const searchEl = document.getElementById('search');
+        return {
+            view: currentView,
+            medium: selectedMedium,
+            franchise: selectedFranchise,
+            actor: selectedActor,
+            mediaTmdbId: selectedMediaTmdbId,
+            mediaTmdbType: selectedMediaTmdbType,
+            mediaName: selectedMediaName,
+            mediaCharId: selectedMediaCharId,
+            bundle: selectedBundle,
+            search: overrideSearch !== undefined ? overrideSearch : (searchEl ? searchEl.value : ''),
+            scroll: mainContent ? mainContent.scrollTop : 0,
+            openCharId: currentlyOpenCharId
+        };
+    }
+
+    function isSamePageState(a, b) {
+        if (!a || !b) return false;
+        if ((a.openCharId || null) !== (b.openCharId || null)) return false;
+        if (a.view !== b.view) return false;
+        switch (a.view) {
+            case 'home': return true;
+            case 'medium': return a.medium === b.medium;
+            case 'franchise': return a.franchise === b.franchise;
+            case 'actor': return a.actor === b.actor;
+            case 'media_page': return a.mediaTmdbId === b.mediaTmdbId && a.mediaTmdbType === b.mediaTmdbType;
+            case 'bundle': return (a.bundle || '').replace(/bundle$/i, '').trim() === (b.bundle || '').replace(/bundle$/i, '').trim();
+            case 'search': return true;
+            case 'all_actors': return true;
+            case 'stats': return true;
+            default: return false;
+        }
+    }
+
+    function pushNavigationHistory(nextState = null, overrideSearch = undefined) {
+        const currState = captureCurrentPageState(overrideSearch);
+        if (nextState && isSamePageState(currState, nextState)) {
+            return;
+        }
+        const lastState = navigationHistory.length > 0 ? navigationHistory[navigationHistory.length - 1] : null;
+        if (lastState && isSamePageState(lastState, currState)) {
+            navigationHistory[navigationHistory.length - 1] = currState;
+        } else {
+            navigationHistory.push(currState);
+            if (navigationHistory.length > 50) navigationHistory.shift();
+        }
+    }
+
+    function getBackButtonLabel(chars = [], meta = {}) {
+        const prevState = navigationHistory.length > 0 ? navigationHistory[navigationHistory.length - 1] : null;
+        if (!prevState) {
+            if (currentView === 'franchise' && selectedFranchise) {
+                const mediumName = (meta && meta[selectedFranchise] && meta[selectedFranchise].medium) ? meta[selectedFranchise].medium : "Uncategorized";
+                return `← Back to ${escapeHtml(mediumName)}`;
+            }
+            if (currentView === 'all_actors') return '← Back to Stats';
+            return '← Back to Hub';
+        }
+
+        if (prevState.openCharId) {
+            const prevChar = chars.find(c => c.id === prevState.openCharId);
+            if (prevChar) return `← Back to ${escapeHtml(prevChar.name)}`;
+        }
+
+        switch (prevState.view) {
+            case 'home':
+                return '← Back to Hub';
+            case 'medium':
+                return `← Back to ${escapeHtml(prevState.medium || 'Medium')}`;
+            case 'franchise':
+                return `← Back to ${escapeHtml(prevState.franchise || 'Franchise')}`;
+            case 'actor':
+                return `← Back to ${escapeHtml(prevState.actor || 'Actor')}`;
+            case 'media_page':
+                return `← Back to ${escapeHtml(prevState.mediaName || 'Media')}`;
+            case 'all_actors':
+                return '← Back to Actor Leaderboard';
+            case 'bundle': {
+                let cleanName = (prevState.bundle || '').replace(/bundle$/i, '').trim();
+                return `← Back to ${escapeHtml(cleanName)} Bundle`;
+            }
+            case 'stats':
+                return '← Back to Stats';
+            case 'search':
+                return prevState.search ? `← Back to Search ("${escapeHtml(prevState.search)}")` : '← Back to Search Results';
+            default:
+                return '← Back to Hub';
+        }
+    }
+
+    async function goBack() {
+        if (navigationHistory.length === 0) {
+            if (currentlyOpenCharId) closePageDirect();
+            if (currentView === 'franchise' && selectedFranchise) {
+                const meta = await getFranchiseMeta();
+                const mediumName = (meta && meta[selectedFranchise] && meta[selectedFranchise].medium) ? meta[selectedFranchise].medium : "Uncategorized";
+                currentView = 'medium';
+                selectedMedium = mediumName;
+                selectedFranchise = null;
+                await renderMainView();
+                return;
+            }
+            if (currentView === 'all_actors') {
+                currentView = 'stats';
+                await renderMainView();
+                return;
+            }
+            currentView = 'home';
+            selectedFranchise = null;
+            selectedMedium = null;
+            selectedActor = null;
+            const searchEl = document.getElementById('search');
+            if (searchEl) searchEl.value = '';
+            await renderMainView();
+            return;
+        }
+
+        const prevState = navigationHistory.pop();
+        currentView = prevState.view || 'home';
+        selectedMedium = prevState.medium !== undefined ? prevState.medium : null;
+        selectedFranchise = prevState.franchise !== undefined ? prevState.franchise : null;
+        selectedActor = prevState.actor !== undefined ? prevState.actor : null;
+        selectedMediaTmdbId = prevState.mediaTmdbId !== undefined ? prevState.mediaTmdbId : null;
+        selectedMediaTmdbType = prevState.mediaTmdbType !== undefined ? prevState.mediaTmdbType : null;
+        selectedMediaName = prevState.mediaName !== undefined ? prevState.mediaName : null;
+        selectedMediaCharId = prevState.mediaCharId !== undefined ? prevState.mediaCharId : null;
+        selectedBundle = prevState.bundle !== undefined ? prevState.bundle : null;
+
+        const searchEl = document.getElementById('search');
+        if (searchEl) {
+            searchEl.value = prevState.view === 'search' ? (prevState.search || '') : '';
+        }
+
+        if (!prevState.openCharId) {
+            closePageDirect();
+        }
+
+        await renderMainView();
+
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+            const scrollToRestore = prevState.scroll || 0;
+            mainContent.scrollTop = scrollToRestore;
+            setTimeout(() => {
+                mainContent.scrollTop = scrollToRestore;
+            }, 50);
+        }
+
+        if (prevState.openCharId) {
+            await openPage(prevState.openCharId);
+        }
+    }
 
     // --- UTILITIES (DEBOUNCE) ---
     function debounce(func, wait) {
@@ -675,7 +837,8 @@
             scroll: mainContent ? mainContent.scrollTop : 0,
             openCharId: currentlyOpenCharId,
             franchiseSortMode: franchiseSortMode,
-            charSortMode: charSortMode
+            charSortMode: charSortMode,
+            history: navigationHistory
         };
         sessionStorage.setItem('gwc_app_state', JSON.stringify(state));
     }
@@ -747,6 +910,7 @@
                 currentlyOpenCharId = state.openCharId || null;
                 franchiseSortMode = state.franchiseSortMode || 'count-desc';
                 charSortMode = state.charSortMode || 'default';
+                if (Array.isArray(state.history)) navigationHistory = state.history;
             } catch(e) {}
         }
 
@@ -1369,7 +1533,7 @@
             header.className = 'franchise-header-bar';
             header.innerHTML = `
                 <div class="header-left-group">
-                    <button class="back-btn" onclick="goHome()">← Back to Hub</button>
+                    <button class="back-btn" onclick="goBack()">${getBackButtonLabel(chars, meta)}</button>
                     <h2 style="margin:0; display:flex; align-items:center; gap:10px;">
                         ${selectedMedium}
                         <button class="subcat-btn" style="border:none; background:transparent; opacity:0.5;" title="Copy Franchise List" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" onclick="copyMediumList('${selectedMedium.replace(/'/g, "\\'")}', this)">📋</button>
@@ -1506,7 +1670,7 @@
             header.className = 'franchise-header-bar';
             header.innerHTML = `
                 <div class="header-left-group">
-                    <button class="back-btn" onclick="viewMedium('${mediumName.replace(/'/g, "\\'")}')">← Back to ${mediumName}</button>
+                    <button class="back-btn" onclick="goBack()">${getBackButtonLabel(chars, meta)}</button>
                     <div style="display:flex; align-items:center; gap:10px;">
                         ${headerContent}
                         <div style="display:flex; gap: 5px; background: rgba(0,0,0,0.2); padding: 2px; border-radius: 6px; border: 1px solid var(--glass-border);">
@@ -1597,6 +1761,16 @@
         } 
         else if (currentView === 'search') {
             const query = document.getElementById('search').value.trim();
+
+            const searchHeader = document.createElement('div');
+            searchHeader.className = 'franchise-header-bar';
+            searchHeader.innerHTML = `
+                <div class="header-left-group">
+                    <button class="back-btn" onclick="goBack()">${getBackButtonLabel(chars, meta)}</button>
+                    <h2 style="margin:0;">Search: <span style="color:var(--accent);">${escapeHtml(query)}</span></h2>
+                </div>
+            `;
+            frag.appendChild(searchHeader);
 
             const allFranchises = await getAllFranchiseNames();
             const franchiseList = allFranchises.map(f => ({
@@ -1727,7 +1901,7 @@
             header.className = 'franchise-header-bar';
             header.innerHTML = `
                 <div class="header-left-group">
-                    <button class="back-btn" onclick="goHome()">← Back to Hub</button>
+                    <button class="back-btn" onclick="goBack()">${getBackButtonLabel(chars, meta)}</button>
                     <h2 style="margin:0;">Actor: <span style="color:var(--accent);">${selectedActor}</span></h2>
                 </div>
             `;
@@ -1979,24 +2153,10 @@
         else if (currentView === 'media_page') {
             const header = document.createElement('div');
             header.className = 'franchise-header-bar';
-            
-            let backAction = "renderMainView()";
-            let backText = "← Back";
-            
-            if (selectedActor) {
-                backAction = `viewActor('${selectedActor.replace(/'/g, "\\'")}')`;
-                backText = `← Back to ${selectedActor}`;
-            } else if (selectedMediaCharId) {
-                const sourceChar = chars.find(c => c.id === selectedMediaCharId);
-                if (sourceChar) {
-                    backAction = `openPage(${selectedMediaCharId})`;
-                    backText = `← Back to ${sourceChar.name}`;
-                }
-            }
 
             header.innerHTML = `
                 <div class="header-left-group">
-                    <button class="back-btn" onclick="${backAction}">${backText}</button>
+                    <button class="back-btn" onclick="goBack()">${getBackButtonLabel(chars, meta)}</button>
                     <h2 style="margin:0; color:var(--accent);">${selectedMediaName}</h2>
                 </div>
             `;
@@ -2098,7 +2258,7 @@
             header.className = 'franchise-header-bar';
             header.innerHTML = `
                 <div class="header-left-group">
-                    <button class="back-btn" onclick="viewStats()">← Back to Stats</button>
+                    <button class="back-btn" onclick="goBack()">${getBackButtonLabel(chars, meta)}</button>
                     <h2 style="margin:0; display:flex; align-items:center; gap:10px; color:var(--accent);">
                         Actor Leaderboard
                     </h2>
@@ -2159,7 +2319,7 @@
 
             header.innerHTML = `
                 <div class="header-left-group">
-                    <button class="back-btn" onclick="goHome()">← Back to Hub</button>
+                    <button class="back-btn" onclick="goBack()">${getBackButtonLabel(chars, meta)}</button>
                     <div style="display:flex; align-items:center; gap:15px;">
                         ${headerTitle}
                         <button class="btn small secondary" onclick="copyBundleInfo('${safeCleanName}', this)">📋 Copy Info</button>
@@ -2414,7 +2574,7 @@
             const avgLevels = chars.length > 0 ? (totalLevels / chars.length).toFixed(1) : 0;
 
             statsContainer.innerHTML = `
-                <div class="franchise-header-bar"><button class="back-btn" onclick="goHome()">← Back to Hub</button></div>
+                <div class="franchise-header-bar"><button class="back-btn" onclick="goBack()">${getBackButtonLabel(chars, meta)}</button></div>
                 <div class="about-header"><h2>Wiki <span>Stats</span></h2></div>
                 
                 <div class="stats-summary" style="grid-template-columns: repeat(4, 1fr);">
@@ -3327,17 +3487,26 @@
     async function handleSearch() { 
         const query = document.getElementById('search').value.trim(); 
         if(query.length > 0) { 
+            if (currentView !== 'search') {
+                pushNavigationHistory({ view: 'search', search: query, openCharId: null }, "");
+            }
             currentView = 'search'; 
             await renderMainView(); 
         } else { 
-            currentView = 'home'; 
-            selectedFranchise = null; 
-            selectedActor = null;
-            await renderMainView(); 
+            if (currentView === 'search' && navigationHistory.length > 0) {
+                await goBack();
+            } else {
+                currentView = 'home'; 
+                selectedFranchise = null; 
+                selectedActor = null;
+                await renderMainView(); 
+            }
         } 
     }
     
     async function viewMedium(medium) {
+        pushNavigationHistory({ view: 'medium', medium: medium, franchise: null, openCharId: null });
+        if (currentlyOpenCharId) closePageDirect();
         currentView = 'medium';
         selectedMedium = medium;
         selectedFranchise = null;
@@ -3345,6 +3514,7 @@
     }
     
     async function viewFranchise(franchiseName) { 
+        pushNavigationHistory({ view: 'franchise', franchise: franchiseName, openCharId: null });
         closePageDirect();
         currentView = 'franchise'; 
         selectedFranchise = franchiseName; 
@@ -3352,20 +3522,30 @@
     }
 
     async function viewActor(actorName) { 
+        pushNavigationHistory({ view: 'actor', actor: actorName, openCharId: null });
         closePageDirect(); 
         currentView = 'actor'; 
         selectedActor = actorName; 
         await renderMainView(); 
     }
 
-    async function viewStats() { currentView = 'stats'; await renderMainView(); }
+    async function viewStats() {
+        pushNavigationHistory({ view: 'stats', openCharId: null });
+        if (currentlyOpenCharId) closePageDirect();
+        currentView = 'stats';
+        await renderMainView();
+    }
 
     async function viewAllActors() {
+        pushNavigationHistory({ view: 'all_actors', openCharId: null });
+        if (currentlyOpenCharId) closePageDirect();
         currentView = 'all_actors';
         await renderMainView();
     }
     
     async function goHome() { 
+        pushNavigationHistory({ view: 'home', franchise: null, medium: null, actor: null, openCharId: null, search: "" });
+        if (currentlyOpenCharId) closePageDirect();
         currentView = 'home'; 
         selectedFranchise = null; 
         selectedMedium = null;
@@ -3375,6 +3555,7 @@
     }
 
     async function openBundlePage(bundleName) {
+        pushNavigationHistory({ view: 'bundle', bundle: bundleName, openCharId: null });
         if(currentlyOpenCharId) closePageDirect(); 
         currentView = 'bundle';
         selectedBundle = bundleName;
@@ -3505,7 +3686,6 @@
                 btnEl.style.display = 'inline-block';
                 btnEl.onclick = (e) => {
                     e.stopPropagation();
-                    closePageDirect();
                     viewMediaPage(matchedId, matchedType, lboItem.media, char.id);
                 };
             } else {
@@ -3515,6 +3695,8 @@
     }
 
     async function viewMediaPage(id, type, name, charId = null) {
+        pushNavigationHistory({ view: 'media_page', mediaTmdbId: id, mediaTmdbType: type, mediaName: name, mediaCharId: charId, openCharId: null });
+        if (currentlyOpenCharId) closePageDirect();
         currentView = 'media_page';
         selectedMediaTmdbId = id;
         selectedMediaTmdbType = type;
